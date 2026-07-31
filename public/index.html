@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Control Center</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --sidebar-bg: #0d0d10;
+      --card-bg: #16161a;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #ffffff;
+      --accent-text: #000000;
+      --accent-glow: rgba(255, 255, 255, 0.08);
+      --danger: #ff5566;
+      --success: #3ddc84;
+      --warning: #ffcc4d;
+      --text: #f5f5f7;
+      --text-muted: #8a8a94;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Arial, sans-serif; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image: radial-gradient(at 15% 0%, rgba(255,255,255,0.04) 0px, transparent 50%);
+    }
+
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ============ SIDEBAR ============ */
+    .sidebar {
+      width: 250px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem 1.1rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .logo-brand { display: flex; align-items: center; gap: 0.65rem; }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #fff, #b8b8c0);
+      color: var(--accent-text);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(255,255,255,0.12);
+    }
+    .logo-text { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; }
+    .logo-text span { color: var(--text-muted); font-weight: 400; }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      padding: 0.45rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .status-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px var(--success); }
+
+    .sidebar-tabs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.85rem 0.65rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .sidebar-tabs::-webkit-scrollbar { width: 5px; }
+    .sidebar-tabs::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.65rem 0.8rem;
+      font-weight: 500;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      white-space: nowrap;
+      text-align: left;
+      width: 100%;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(255,255,255,0.1);
+    }
+
+    .badge-new {
+      background: var(--danger);
+      color: #fff;
+      font-size: 0.55rem;
+      font-weight: 800;
+      padding: 0.12rem 0.4rem;
+      border-radius: 6px;
+      letter-spacing: 0.03em;
+      margin-left: auto;
+    }
+    .tab-btn.active .badge-new { background: var(--accent-text); color: var(--accent); }
+
+    /* ============ MAIN CONTENT ============ */
+    .main-content {
+      flex: 1;
+      padding: 2rem 2.25rem;
+      min-width: 0;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.2s ease-out; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.15rem; }
+    label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    input[type="text"], input[type="number"], input[type="color"], textarea, select {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      color: var(--text);
+      outline: none;
+      width: 100%;
+      font-size: 0.87rem;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+    button.action-btn {
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem 1.1rem;
+      cursor: pointer;
+      font-weight: 700;
+      width: 100%;
+      font-size: 0.87rem;
+      transition: all 0.15s;
+      box-shadow: 0 4px 14px rgba(255,255,255,0.08);
+    }
+
+    button.action-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,255,255,0.14); }
+    button.action-btn:active { transform: translateY(0); }
+    button.maint-btn { background: var(--warning); color: #000; }
+    button.maint-btn.active { background: var(--danger); color: #fff; }
+
+    .custom-dropdown { position: relative; width: 100%; }
+    .dropdown-header {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.7rem 0.9rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.87rem;
+    }
+    .dropdown-list {
+      display: none;
+      position: absolute;
+      top: 105%;
+      left: 0;
+      right: 0;
+      background: #1a1a1e;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+      z-index: 100;
+      padding: 0.5rem;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    }
+    .dropdown-list.show { display: block; }
+    .dropdown-item { padding: 0.55rem; cursor: pointer; border-radius: 6px; font-size: 0.82rem; }
+    .dropdown-item:hover { background: rgba(255,255,255,0.06); }
+
+    .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2a2a30; transition: 0.2s; border-radius: 22px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: 0.2s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(20px); background-color: var(--accent-text); }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.95rem; font-size: 0.87rem; }
+
+    .tag { background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); padding: 0.28rem 0.7rem; border-radius: 16px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.4rem; margin: 0.15rem; }
+    .tag span { cursor: pointer; color: var(--danger); font-weight: bold; }
+
+    .chatbox {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      height: 420px;
+      overflow-y: auto;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .chat-msg {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 0.7rem;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .chat-msg:hover { background: rgba(255,255,255,0.05); }
+    .chat-user { font-weight: 700; font-size: 0.82rem; color: var(--text); }
+    .chat-channel { font-size: 0.7rem; background: rgba(255,255,255,0.08); padding: 0.12rem 0.45rem; border-radius: 4px; margin-left: 0.4rem; color: var(--text-muted); }
+    .chat-text { font-size: 0.87rem; color: #d0d0d5; margin-top: 0.25rem; }
+    .del-btn { background: var(--danger); border: none; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 600; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); z-index: 2000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: #16161a; border: 1px solid var(--card-border); border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 460px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem; }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 0.9rem; }
+
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 10px; }
+    .toast { padding: 12px 20px; border-radius: 10px; color: #fff; font-weight: 600; font-size: 0.87rem; box-shadow: 0 10px 25px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px; animation: slideIn 0.25s ease; }
+    .toast.success { background: #0f2a1b; border: 1px solid var(--success); color: var(--success); }
+    .toast.error { background: #2a0f14; border: 1px solid var(--danger); color: var(--danger); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid var(--card-border); }
+    th { color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; }
+    .empty-state { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.87rem; }
+  </style>
+</head>
+<body>
+
+  <div id="toast-container"></div>
+
+  <!-- Quick Action User Modal -->
+  <div class="modal-overlay" id="modModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalUserTag" style="font-size:1.1rem; color:#fff;">User Actions</h3>
+          <div id="modalUserIdText" style="font-size:0.75rem; color:var(--text-muted)">ID: --</div>
+        </div>
+        <button onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">&times;</button>
+      </div>
+
+      <div class="input-group">
+        <label>Reason for Staff Action</label>
+        <input type="text" id="modalReason" placeholder="Reason for action">
+      </div>
+
+      <div style="background: rgba(0,0,0,0.3); padding: 0.8rem; border-radius: 10px; margin-bottom: 1rem; border: 1px solid var(--card-border);">
+        <div class="toggle-row" style="margin-bottom:0.5rem;">
+          <span style="font-size:0.85rem; font-weight:600;">Notify User via Custom DM Embed</span>
+          <label class="switch"><input type="checkbox" id="modalUseEmbed" checked onchange="toggleEmbedInputs()"><span class="slider"></span></label>
+        </div>
+        
+        <div id="embedOptions" style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.5rem;">
+          <input type="text" id="modalEmbedTitle" placeholder="Embed Title (e.g. Server Notice)">
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <label style="font-size:0.75rem;">Embed Color:</label>
+            <input type="color" id="modalEmbedColor" value="#6366f1" style="height:32px; width:60px; padding:2px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-grid">
+        <button class="action-btn" style="background:#0284c7" onclick="quickAction('timeout', 60)">⏱️ Timeout (1h) & DM</button>
+        <button class="action-btn" style="background:#3b82f6" onclick="quickAction('timeout', 1440)">⛔ Timeout (24h) & DM</button>
+        <button class="action-btn" style="background:var(--warning); color:#000;" onclick="quickAction('warn')">⚠️ Warn & DM</button>
+        <button class="action-btn" style="background:var(--accent)" onclick="quickAction('dm')">📩 Direct DM</button>
+        <button class="action-btn" style="background:var(--danger)" onclick="quickAction('kick')">🥾 Kick Member</button>
+        <button class="action-btn" style="background:#b91c1c" onclick="quickAction('ban')">🔨 Ban Member</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-brand">
+          <div class="logo-icon">A</div>
+          <div class="logo-text">Apex <span>Control Suite</span></div>
+        </div>
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          <span id="headerBotTag">Connecting Engine...</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-tabs" id="tabScrollContainer">
+        <button class="tab-btn active" onclick="switchTab('system', this)">⚡ System</button>
+        <button class="tab-btn" onclick="switchTab('automod', this)">🛡️ AutoMod</button>
+        <button class="tab-btn" onclick="switchTab('chatlogs', this)">💬 Live Chat</button>
+        <button class="tab-btn" onclick="switchTab('remotemod', this)">🔨 Remote Mod</button>
+        <button class="tab-btn" onclick="switchTab('gamemanager', this)">🎮 Game Manager <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('bypasses', this)">🔓 Bypasses</button>
+        <button class="tab-btn" onclick="switchTab('analytics', this)">📊 Analytics <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('audit', this)">📜 Audit Logs <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('commands', this)">⚙️ Commands <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('announcer', this)">📢 Announcer <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('economy', this)">💰 Economy <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('tickets', this)">🎟️ Tickets <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('database', this)">💾 Database <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('webhooks', this)">🔗 Webhooks <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('developer', this)">🔑 API Keys <span class="badge-new">NEW</span></button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+
+    <!-- TAB 1: SYSTEM & PRESENCE -->
+    <div id="tab-system" class="tab-content active">
+      <div class="grid">
+        <div class="card">
+          <h2>⚡ Maintenance Mode</h2>
+          <button id="maintBtn" class="action-btn maint-btn" onclick="toggleMaintenance()">Toggle Maintenance Mode</button>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.8rem;" id="maintStatusText">Maintenance: Disabled</div>
+        </div>
+
+        <div class="card">
+          <h2>👤 Identity</h2>
+          <div class="input-group"><label>Bot Username</label><input type="text" id="usernameInput"></div>
+          <div class="input-group"><label>Avatar URL</label><input type="text" id="avatarInput"></div>
+          <button class="action-btn" onclick="saveProfile()">Save Identity</button>
+        </div>
+
+        <div class="card">
+          <h2>🎮 Discord Presence</h2>
+          <div class="input-group">
+            <label>Status Type</label>
+            <select id="statusTypeSelect">
+              <option value="online">Online</option>
+              <option value="idle">Idle</option>
+              <option value="dnd">Do Not Disturb</option>
+              <option value="invisible">Invisible</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Activity Type</label>
+            <select id="activityTypeSelect" onchange="checkStreamUrl(this.value)">
+              <option value="PLAYING">Playing</option>
+              <option value="STREAMING">Streaming</option>
+              <option value="LISTENING">Listening</option>
+              <option value="WATCHING">Watching</option>
+            </select>
+          </div>
+          <div class="input-group"><label>Activity Message</label><input type="text" id="activityTextInput"></div>
+          <div class="input-group" id="streamGroup" style="display:none;"><label>Twitch / Stream URL</label><input type="text" id="streamUrlInput"></div>
+          <button class="action-btn" onclick="savePresence()">Apply Status</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: AUTOMOD ENGINE -->
+    <div id="tab-automod" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>🛡️ Protection Toggles</h2>
+          <div class="toggle-row"><span>Master AutoMod</span><label class="switch"><input type="checkbox" id="am_enabled" onchange="saveAutoMod()"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Block Profanity</span><label class="switch"><input type="checkbox" id="am_blockProfanity" onchange="saveAutoMod()"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Block Discord Invites</span><label class="switch"><input type="checkbox" id="am_blockInvites" onchange="saveAutoMod()"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Block External Links</span><label class="switch"><input type="checkbox" id="am_blockLinks" onchange="saveAutoMod()"><span class="slider"></span></label></div>
+        </div>
+
+        <div class="card">
+          <h2>⚙️ Threshold Limits</h2>
+          <div class="input-group"><label>Max Strikes Before Timeout</label><input type="number" id="am_maxWarnings" onchange="saveAutoMod()"></div>
+          <div class="input-group"><label>Auto Timeout Duration (Hours)</label><input type="number" id="am_timeoutHours" onchange="saveAutoMod()"></div>
+        </div>
+
+        <div class="card">
+          <h2>🚫 Bad Words Filter</h2>
+          <div style="display:flex; gap:0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="newWordInput" placeholder="Add word..." style="flex:1;">
+            <button class="action-btn" onclick="addWord()" style="width:auto;">Add</button>
+          </div>
+          <div id="wordsContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: LIVE CHATLOGS -->
+    <div id="tab-chatlogs" class="tab-content">
+      <div class="card">
+        <h2>💬 Live Streamed Chatlogs & Filters</h2>
+        
+        <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom:1rem;">
+          <div class="input-group">
+            <label>Channel Stream</label>
+            <div class="custom-dropdown">
+              <div class="dropdown-header" onclick="toggleDropdown('chatChannelDropdown')">
+                <span id="selectedChatLabel">All Channels (Live Stream)</span> ▼
+              </div>
+              <div class="dropdown-list" id="chatChannelDropdown">
+                <div class="search-box">
+                  <input type="text" id="chatChannelSearch" placeholder="Filter channel..." onkeyup="filterChannelList()">
+                </div>
+                <div class="dropdown-item" onclick="selectChatFilter('all', 'All Channels (Live Stream)')">All Channels (Live Stream)</div>
+                <div id="chatChannelList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>Search Messages</label>
+            <input type="text" id="logSearchQuery" placeholder="Filter user or text..." onkeyup="filterLogSearch()">
+          </div>
+        </div>
+
+        <div class="chatbox" id="chatbox">Loading chat messages...</div>
+      </div>
+    </div>
+
+    <!-- TAB 4: REMOTE MODERATION -->
+    <div id="tab-remotemod" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>🔨 Remote Action Suite</h2>
+          <div class="input-group"><label>Target User ID</label><input type="text" id="modUserId"></div>
+          <div class="input-group">
+            <label>Action</label>
+            <select id="modActionSelect">
+              <option value="timeout">Timeout Member</option>
+              <option value="kick">Kick Member</option>
+              <option value="ban">Ban Member</option>
+            </select>
+          </div>
+          <div class="input-group"><label>Timeout Duration (Mins)</label><input type="number" id="modTimeoutMins" value="60"></div>
+          <div class="input-group"><label>Reason</label><input type="text" id="modReason"></div>
+          <button class="action-btn" style="background:var(--danger)" onclick="executeRemoteMod()">Execute Action</button>
+        </div>
+
+        <div class="card">
+          <h2>⚡ Tracked User Strikes</h2>
+          <div id="warningsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4B: GAME MANAGER (ROBLOX) -->
+    <div id="tab-gamemanager" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>📢 Remote Announce (Roblox)</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Sends a banner announcement to every player currently in your live, published Roblox game via Open Cloud. Does not work while testing in Studio — Roblox platform limitation.
+          </div>
+          <div class="input-group">
+            <label>Message</label>
+            <textarea id="rbx_announceMsg" rows="3" placeholder="Announcement text..." oninput="updateAnnouncePreview()"></textarea>
+          </div>
+          <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); border-radius: 10px; padding: 1rem; margin-bottom: 1.2rem; text-align:center;">
+            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem;">Preview</div>
+            <div id="rbx_announcePreview" style="font-weight:700; color:#fff; font-size:1rem;">Your announcement will appear here...</div>
+          </div>
+          <button class="action-btn" onclick="sendRobloxAnnounce()">Send to Roblox</button>
+        </div>
+
+        <div class="card">
+          <h2>🥾 Remote Kick</h2>
+          <div class="input-group"><label>Target Username</label><input type="text" id="rbx_kickTarget" placeholder="Roblox username"></div>
+          <div class="input-group"><label>Reason</label><input type="text" id="rbx_kickReason" placeholder="Reason for kick"></div>
+          <button class="action-btn" style="background:var(--danger)" onclick="sendRobloxKick()">Kick from Game</button>
+        </div>
+
+        <div class="card">
+          <h2>🔨 Permanent Ban</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Uses Roblox's native ban system — persists across sessions, includes a 24-hour device block.
+          </div>
+          <div class="input-group"><label>Target Username</label><input type="text" id="rbx_banTarget" placeholder="Roblox username"></div>
+          <div class="input-group"><label>Reason</label><input type="text" id="rbx_banReason" placeholder="Reason for ban"></div>
+          <button class="action-btn" style="background:#b91c1c" onclick="sendRobloxBan()">Ban from Game</button>
+        </div>
+
+        <div class="card">
+          <h2>✅ Unban</h2>
+          <div class="input-group"><label>Target Username or UserId</label><input type="text" id="rbx_unbanTarget" placeholder="Username or UserId"></div>
+          <button class="action-btn" style="background:var(--success)" onclick="sendRobloxUnban()">Remove Ban</button>
+        </div>
+
+        <div class="card">
+          <h2>🔇 Mute</h2>
+          <div class="input-group"><label>Target Username</label><input type="text" id="rbx_muteTarget" placeholder="Roblox username"></div>
+          <button class="action-btn" style="background:var(--warning); color:#000;" onclick="sendRobloxMute()">Mute Player</button>
+        </div>
+
+        <div class="card">
+          <h2>🔊 Unmute</h2>
+          <div class="input-group"><label>Target Username</label><input type="text" id="rbx_unmuteTarget" placeholder="Roblox username"></div>
+          <button class="action-btn" onclick="sendRobloxUnmute()">Unmute Player</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>👥 Live Player Roster <span id="rbxRosterCount" style="color:var(--accent);">0</span></h2>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:1rem;" id="rbxRosterUpdated">Waiting for data...</div>
+          <div id="rbxRosterList" style="max-height:300px; overflow-y:auto;">Loading player roster...</div>
+        </div>
+
+        <div class="card">
+          <h2>💬 Live Roblox Chat</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Streams chat messages pushed from your game in real time.
+          </div>
+          <div class="chatbox" id="rbxChatbox" style="height:300px;">Loading Roblox chat messages...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: BYPASSES -->
+    <div id="tab-bypasses" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>🛡️ Exempt Roles</h2>
+          <div id="roleBypassContainer"></div>
+        </div>
+        <div class="card">
+          <h2>📺 Exempt Channels</h2>
+          <div id="channelBypassContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: ANALYTICS -->
+    <div id="tab-analytics" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>📊 RAM Usage</h2>
+          <div style="font-size:2.2rem; font-weight:800; color:var(--accent);" id="ramVal">-- MB</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">Heap Allocation</div>
+        </div>
+        <div class="card">
+          <h2>⚡ System Uptime</h2>
+          <div style="font-size:2.2rem; font-weight:800; color:var(--success);" id="uptimeVal">--</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">Process Uptime</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: AUDIT LOGS -->
+    <div id="tab-audit" class="tab-content">
+      <div class="card">
+        <h2>📜 Audit & Activity Feed</h2>
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table>
+            <thead><tr><th>Timestamp</th><th>Action</th><th>Details</th></tr></thead>
+            <tbody id="auditTableBody">
+              <tr><td colspan="3" class="empty-state">No historical audit logs recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 8: COMMAND MANAGER -->
+    <div id="tab-commands" class="tab-content">
+      <div class="card">
+        <h2>⚙️ Slash Command Controls</h2>
+        <div id="commandToggleList"></div>
+      </div>
+    </div>
+
+    <!-- TAB 9: EMBED ANNOUNCER -->
+    <div id="tab-announcer" class="tab-content">
+      <div class="card">
+        <h2>📢 Visual Embed Announcer</h2>
+        <div class="input-group"><label>Target Channel</label><select id="announcerChannelSelect"></select></div>
+        <div class="input-group"><label>Title</label><input type="text" id="announceTitle" placeholder="Announcement Title"></div>
+        <div class="input-group"><label>Message Content</label><textarea id="announceDesc" rows="4" placeholder="Enter embed content..."></textarea></div>
+        <div class="input-group"><label>Color Accent</label><input type="color" id="announceColor" value="#6366f1"></div>
+        <button class="action-btn" onclick="sendAnnouncement()">Send Embed Announcement</button>
+      </div>
+    </div>
+
+    <!-- TAB 10: ECONOMY -->
+    <div id="tab-economy" class="tab-content">
+      <div class="card">
+        <h2>💰 Economy Module Settings</h2>
+        <div class="toggle-row"><span>Enable Economy</span><label class="switch"><input type="checkbox" id="rp_enableEconomy"><span class="slider"></span></label></div>
+        <div class="input-group"><label>Starting Balance ($)</label><input type="number" id="rp_startingBalance" value="500"></div>
+        <div class="input-group"><label>Daily Reward ($)</label><input type="number" id="rp_dailyReward" value="100"></div>
+      </div>
+    </div>
+
+    <!-- TAB 11: TICKETS -->
+    <div id="tab-tickets" class="tab-content">
+      <div class="card">
+        <h2>🎟️ Support Ticket Queue</h2>
+        <table>
+          <thead><tr><th>Ticket ID</th><th>User</th><th>Subject</th><th>Status</th></tr></thead>
+          <tbody id="ticketsBody">
+            <tr><td colspan="4" class="empty-state">No active support tickets found.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 12: DATABASE -->
+    <div id="tab-database" class="tab-content">
+      <div class="card">
+        <h2>💾 Database Snapshot Backup</h2>
+        <button class="action-btn" onclick="triggerBackup()">Download Data Backup</button>
+      </div>
+    </div>
+
+    <!-- TAB 13: WEBHOOKS -->
+    <div id="tab-webhooks" class="tab-content">
+      <div class="card">
+        <h2>🔗 External Webhook Integration</h2>
+        <div id="webhooksList" class="empty-state">No active webhooks configured.</div>
+      </div>
+    </div>
+
+    <!-- TAB 14: DEVELOPER KEYS -->
+    <div id="tab-developer" class="tab-content">
+      <div class="card">
+        <h2>🔑 API Keys & Integration Tokens</h2>
+        <div id="apiKeysList" class="empty-state">No REST API keys created.</div>
+      </div>
+    </div>
+
+    </main>
+  </div>
+
+  <script>
+    const socket = io();
+    let globalData = {};
+    let activeChatFilter = 'all';
+    let targetModalUserId = null;
+    let targetModalUserTag = '';
+
+    let lastToastTime = 0;
+    function showToast(message, type = 'success') {
+      const now = Date.now();
+      if (now - lastToastTime < 1500) return;
+      lastToastTime = now;
+
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `${type === 'success' ? '✅' : '❌'} ${message}`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function scrollTabs(amount) {
+      document.getElementById('tabScrollContainer').scrollBy({ left: amount, behavior: 'smooth' });
+    }
+
+    function switchTab(name, element) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      const targetBtn = element || event.target.closest('.tab-btn');
+      if (targetBtn) {
+        targetBtn.classList.add('active');
+        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+      
+      document.getElementById(`tab-${name}`).classList.add('active');
+
+      if (name === 'gamemanager') {
+        loadRobloxChatlogs();
+        loadRobloxRoster();
+      }
+    }
+
+    function toggleDropdown(id) { document.getElementById(id).classList.toggle('show'); }
+
+    function checkStreamUrl(val) {
+      const streamGrp = document.getElementById('streamGroup');
+      const statusSelect = document.getElementById('statusTypeSelect');
+
+      if (val === 'STREAMING') {
+        streamGrp.style.display = 'block';
+        statusSelect.value = 'online';
+      } else {
+        streamGrp.style.display = 'none';
+      }
+    }
+
+    function toggleEmbedInputs() {
+      const isChecked = document.getElementById('modalUseEmbed').checked;
+      document.getElementById('embedOptions').style.display = isChecked ? 'flex' : 'none';
+    }
+
+    function openUserModal(userId, userTag) {
+      targetModalUserId = userId;
+      targetModalUserTag = userTag;
+      document.getElementById('modalUserTag').innerText = userTag;
+      document.getElementById('modalUserIdText').innerText = `ID: ${userId}`;
+      document.getElementById('modModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('modModal').classList.remove('show');
+    }
+
+    async function quickAction(action, mins = 60) {
+      const reason = document.getElementById('modalReason').value || 'Staff Decision';
+      const useEmbed = document.getElementById('modalUseEmbed').checked;
+      const embedTitle = document.getElementById('modalEmbedTitle').value;
+      const embedColor = document.getElementById('modalEmbedColor').value;
+
+      const res = await fetch('/api/moderation/action', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          action,
+          userId: targetModalUserId,
+          reason,
+          timeoutMinutes: mins,
+          customMsg: reason,
+          useEmbed,
+          embedTitle,
+          embedColor
+        })
+      });
+      const data = await res.json();
+      closeModal();
+      if (data.success) showToast(data.message, 'success');
+      else showToast(data.error, 'error');
+    }
+
+    function renderDashboard(data) {
+      globalData = data;
+      document.getElementById('headerBotTag').innerText = data.botInfo.tag;
+
+      const btn = document.getElementById('maintBtn');
+      const txt = document.getElementById('maintStatusText');
+      if (data.botState.isMaintenanceMode) {
+        btn.innerText = "MAINTENANCE ACTIVE (Click to Disable)";
+        btn.className = "action-btn maint-btn active";
+        txt.innerText = "Maintenance: Enabled";
+      } else {
+        btn.innerText = "Toggle Maintenance Mode";
+        btn.className = "action-btn maint-btn";
+        txt.innerText = "Maintenance: Disabled";
+      }
+
+      document.getElementById('statusTypeSelect').value = data.botState.statusType;
+      document.getElementById('activityTypeSelect').value = data.botState.activityType;
+      document.getElementById('activityTextInput').value = data.botState.activityText;
+      document.getElementById('streamUrlInput').value = data.botState.streamUrl;
+      checkStreamUrl(data.botState.activityType);
+
+      const am = data.botState.autoMod;
+      document.getElementById('am_enabled').checked = am.enabled;
+      document.getElementById('am_blockProfanity').checked = am.blockProfanity;
+      document.getElementById('am_blockInvites').checked = am.blockInvites;
+      document.getElementById('am_blockLinks').checked = am.blockLinks;
+      document.getElementById('am_maxWarnings').value = am.maxWarnings;
+      document.getElementById('am_timeoutHours').value = am.timeoutHours;
+
+      const wContainer = document.getElementById('wordsContainer');
+      wContainer.innerHTML = '';
+      am.customBadWords.forEach(w => {
+        wContainer.innerHTML += `<div class="tag">${w} <span onclick="removeWord('${w}')">&times;</span></div>`;
+      });
+
+      const rContainer = document.getElementById('roleBypassContainer');
+      rContainer.innerHTML = '';
+      data.rolesList.forEach(r => {
+        const checked = am.bypassRoles.includes(r.id) ? 'checked' : '';
+        rContainer.innerHTML += `<div class="toggle-row"><span>${r.name}</span><label class="switch"><input type="checkbox" class="role-bypass-cb" value="${r.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
+      });
+
+      const cContainer = document.getElementById('channelBypassContainer');
+      cContainer.innerHTML = '';
+      data.channelsList.forEach(c => {
+        const checked = am.bypassChannels.includes(c.id) ? 'checked' : '';
+        cContainer.innerHTML += `<div class="toggle-row"><span>#${c.name}</span><label class="switch"><input type="checkbox" class="channel-bypass-cb" value="${c.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
+      });
+
+      const chatList = document.getElementById('chatChannelList');
+      chatList.innerHTML = '';
+      data.channelsList.forEach(c => {
+        chatList.innerHTML += `<div class="dropdown-item channel-search-item" onclick="selectChatFilter('${c.id}', '#${c.name}')">#${c.name}</div>`;
+      });
+
+      const announceSelect = document.getElementById('announcerChannelSelect');
+      if (announceSelect) {
+        announceSelect.innerHTML = '';
+        data.channelsList.forEach(c => {
+          announceSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+        });
+      }
+
+      if (data.analytics) {
+        document.getElementById('ramVal').innerText = data.analytics.ramUsage || '-- MB';
+        document.getElementById('uptimeVal').innerText = data.analytics.uptime || '--';
+      }
+
+      if (data.auditLogs && data.auditLogs.length > 0) {
+        const auditBody = document.getElementById('auditTableBody');
+        auditBody.innerHTML = '';
+        data.auditLogs.forEach(log => {
+          auditBody.innerHTML += `<tr><td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td></tr>`;
+        });
+      }
+
+      if (data.commandsList) {
+        const cmdList = document.getElementById('commandToggleList');
+        cmdList.innerHTML = '';
+        data.commandsList.forEach(cmd => {
+          cmdList.innerHTML += `<div class="toggle-row"><span>/${cmd}</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>`;
+        });
+      }
+
+      const warnDiv = document.getElementById('warningsList');
+      warnDiv.innerHTML = '';
+      if (data.warningsList.length === 0) {
+        warnDiv.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted)">No user strikes tracked.</div>';
+      } else {
+        data.warningsList.forEach(w => {
+          warnDiv.innerHTML += `<div style="padding:0.5rem 0; border-bottom:1px solid var(--card-border)">User ID: <strong>${w.id}</strong> - ${w.count} Warning Strikes</div>`;
+        });
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/dashboard');
+        const data = await res.json();
+        renderDashboard(data);
+        selectChatFilter('all', 'All Channels (Live Stream)');
+      } catch (e) {
+        showToast('Failed to connect to Bot Engine Server!', 'error');
+      }
+    }
+
+    async function toggleMaintenance() {
+      const res = await fetch('/api/bot/maintenance', { method: 'POST' });
+      const data = await res.json();
+      renderDashboard(data.payload);
+      showToast(data.message, data.success ? 'success' : 'error');
+    }
+
+    async function saveBypasses() {
+      const roles = Array.from(document.querySelectorAll('.role-bypass-cb:checked')).map(cb => cb.value);
+      const channels = Array.from(document.querySelectorAll('.channel-bypass-cb:checked')).map(cb => cb.value);
+
+      const res = await fetch('/api/bypass/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roles, channels })
+      });
+      const data = await res.json();
+      renderDashboard(data.payload);
+      showToast(data.message, data.success ? 'success' : 'error');
+    }
+
+    async function savePresence() {
+      const res = await fetch('/api/bot/presence', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          statusType: document.getElementById('statusTypeSelect').value,
+          activityType: document.getElementById('activityTypeSelect').value,
+          activityText: document.getElementById('activityTextInput').value,
+          streamUrl: document.getElementById('streamUrlInput').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function saveAutoMod() {
+      const res = await fetch('/api/automod/update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          enabled: document.getElementById('am_enabled').checked,
+          blockProfanity: document.getElementById('am_blockProfanity').checked,
+          blockInvites: document.getElementById('am_blockInvites').checked,
+          blockLinks: document.getElementById('am_blockLinks').checked,
+          maxWarnings: parseInt(document.getElementById('am_maxWarnings').value),
+          timeoutHours: parseInt(document.getElementById('am_timeoutHours').value)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function addWord() {
+      const input = document.getElementById('newWordInput');
+      if (!input.value) return showToast('Please enter a word!', 'error');
+
+      const res = await fetch('/api/words/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ word: input.value })
+      });
+      const data = await res.json();
+      input.value = '';
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function removeWord(word) {
+      const res = await fetch('/api/words/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ word })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function saveProfile() {
+      const res = await fetch('/api/bot/profile', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          username: document.getElementById('usernameInput').value,
+          avatarUrl: document.getElementById('avatarInput').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function sendAnnouncement() {
+      const channelId = document.getElementById('announcerChannelSelect').value;
+      const title = document.getElementById('announceTitle').value;
+      const description = document.getElementById('announceDesc').value;
+      const color = document.getElementById('announceColor').value;
+
+      const res = await fetch('/api/announcer/send', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ channelId, title, description, color })
+      });
+      const data = await res.json();
+      if (data.success) showToast(data.message, 'success');
+      else showToast(data.error, 'error');
+    }
+
+    async function triggerBackup() {
+      const res = await fetch('/api/database/backup', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) showToast(data.message, 'success');
+    }
+
+    function filterChannelList() {
+      const query = document.getElementById('chatChannelSearch').value.toLowerCase();
+      document.querySelectorAll('.channel-search-item').forEach(item => {
+        item.style.display = item.innerText.toLowerCase().includes(query) ? 'block' : 'none';
+      });
+    }
+
+    function filterLogSearch() {
+      const query = document.getElementById('logSearchQuery').value.toLowerCase();
+      document.querySelectorAll('.chat-msg').forEach(msg => {
+        const text = msg.innerText.toLowerCase();
+        msg.style.display = text.includes(query) ? 'flex' : 'none';
+      });
+    }
+
+    async function selectChatFilter(id, label) {
+      activeChatFilter = id;
+      document.getElementById('selectedChatLabel').innerText = label;
+      document.getElementById('chatChannelDropdown').classList.remove('show');
+
+      const box = document.getElementById('chatbox');
+      box.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">Loading chat stream...</div>';
+
+      const res = await fetch(`/api/chatlogs/${id}`);
+      const data = await res.json();
+      box.innerHTML = '';
+
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(m => appendChatMessage(m));
+      } else {
+        box.innerHTML = '<div class="empty-state">No historical chat messages found in channel.</div>';
+      }
+    }
+
+    function appendChatMessage(msg) {
+      if (activeChatFilter !== 'all' && msg.channelId !== activeChatFilter) return;
+
+      const box = document.getElementById('chatbox');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-msg';
+      msgDiv.onclick = () => openUserModal(msg.authorId, msg.author);
+
+      msgDiv.innerHTML = `
+        <div>
+          <span class="chat-user">${msg.author}</span>
+          <span class="chat-channel">#${msg.channelName || 'channel'}</span>
+          <div class="chat-text">${msg.content}</div>
+        </div>
+        <button class="del-btn" onclick="event.stopPropagation(); deleteMessage('${msg.channelId}', '${msg.id}', this)">Delete</button>
+      `;
+      box.appendChild(msgDiv);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function deleteMessage(channelId, messageId, btn) {
+      const res = await fetch(`/api/chatlogs/${channelId}/${messageId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        btn.closest('.chat-msg').remove();
+        showToast('Message deleted from Discord!', 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function executeRemoteMod() {
+      const res = await fetch('/api/moderation/action', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          userId: document.getElementById('modUserId').value,
+          action: document.getElementById('modActionSelect').value,
+          timeoutMinutes: document.getElementById('modTimeoutMins').value,
+          reason: document.getElementById('modReason').value,
+          useEmbed: true,
+          embedTitle: 'Apex Moderation Notice'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    // ============================================================
+    // GAME MANAGER (ROBLOX) — announce, kick, live chat
+    // ============================================================
+
+    async function sendRobloxAnnounce() {
+      const message = document.getElementById('rbx_announceMsg').value;
+      if (!message) return showToast('Please enter a message!', 'error');
+
+      try {
+        const res = await fetch('/api/roblox/announce', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message, 'success');
+          document.getElementById('rbx_announceMsg').value = '';
+          updateAnnouncePreview();
+        } else {
+          showToast(data.error, 'error');
+        }
+      } catch (err) {
+        showToast('Request failed: ' + err.message, 'error');
+      }
+    }
+
+    function updateAnnouncePreview() {
+      const msg = document.getElementById('rbx_announceMsg').value || 'Your announcement will appear here...';
+      const preview = document.getElementById('rbx_announcePreview');
+      if (preview) preview.innerText = msg;
+    }
+
+    async function sendRobloxKick() {
+      const target = document.getElementById('rbx_kickTarget').value;
+      const reason = document.getElementById('rbx_kickReason').value;
+      if (!target) return showToast('Please enter a target username!', 'error');
+
+      const res = await fetch('/api/roblox/kick', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ target, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        document.getElementById('rbx_kickTarget').value = '';
+        document.getElementById('rbx_kickReason').value = '';
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function robloxAction(endpoint, targetFieldId, reasonFieldId, successVerb) {
+      const target = document.getElementById(targetFieldId).value;
+      if (!target) return showToast('Please enter a target username!', 'error');
+      const reason = reasonFieldId ? document.getElementById(reasonFieldId).value : undefined;
+
+      const res = await fetch(`/api/roblox/${endpoint}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ target, reason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || `${successVerb} published for ${target}!`, 'success');
+        document.getElementById(targetFieldId).value = '';
+        if (reasonFieldId) document.getElementById(reasonFieldId).value = '';
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    function sendRobloxBan() { robloxAction('ban', 'rbx_banTarget', 'rbx_banReason', 'Ban'); }
+    function sendRobloxUnban() { robloxAction('unban', 'rbx_unbanTarget', null, 'Unban'); }
+    function sendRobloxMute() { robloxAction('mute', 'rbx_muteTarget', null, 'Mute'); }
+    function sendRobloxUnmute() { robloxAction('unmute', 'rbx_unmuteTarget', null, 'Unmute'); }
+
+    async function loadRobloxRoster() {
+      const box = document.getElementById('rbxRosterList');
+      const res = await fetch('/api/roblox/player-roster');
+      const data = await res.json();
+      renderRobloxRoster(data);
+    }
+
+    function renderRobloxRoster(data) {
+      const box = document.getElementById('rbxRosterList');
+      if (!box) return;
+      const players = data.players || [];
+      const countEl = document.getElementById('rbxRosterCount');
+      if (countEl) countEl.innerText = players.length;
+      const updatedEl = document.getElementById('rbxRosterUpdated');
+      if (updatedEl) updatedEl.innerText = data.lastUpdated ? `Updated ${data.lastUpdated}` : 'Waiting for data...';
+
+      if (players.length === 0) {
+        box.innerHTML = '<div class="empty-state">No players online, or the game has not pushed roster data yet.</div>';
+        return;
+      }
+      box.innerHTML = '';
+      players.forEach(p => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--card-border); font-size:0.85rem;';
+        row.innerHTML = `<span><strong>${p.name}</strong> <span style="color:var(--text-muted)">(${p.userId})</span></span><span style="color:var(--text-muted)">${p.ping}ms</span>`;
+        box.appendChild(row);
+      });
+    }
+
+    async function loadRobloxChatlogs() {
+      const box = document.getElementById('rbxChatbox');
+      box.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem;">Loading Roblox chat stream...</div>';
+
+      const res = await fetch('/api/roblox/chatlogs');
+      const data = await res.json();
+      box.innerHTML = '';
+
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(m => appendRobloxChatMessage(m));
+      } else {
+        box.innerHTML = '<div class="empty-state">No Roblox chat messages received yet.</div>';
+      }
+    }
+
+    function appendRobloxChatMessage(msg) {
+      const box = document.getElementById('rbxChatbox');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-msg';
+      msgDiv.style.cursor = 'default';
+
+      msgDiv.innerHTML = `
+        <div>
+          <span class="chat-user">${msg.author}</span>
+          <span class="chat-channel">${msg.serverId || 'server'}</span>
+          <div class="chat-text">${msg.content}</div>
+        </div>
+      `;
+      box.appendChild(msgDiv);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    socket.on('robloxMessage', (msg) => {
+      appendRobloxChatMessage(msg);
+    });
+
+    socket.on('robloxRoster', (data) => {
+      renderRobloxRoster(data);
+    });
+
+    socket.on('discordMessage', (msg) => {
+      appendChatMessage(msg);
+    });
+
+    // Real-Time Socket Audit Log Listener
+    socket.on('auditLogUpdate', (log) => {
+      const auditBody = document.getElementById('auditTableBody');
+      if (!auditBody) return;
+      
+      const emptyRow = auditBody.querySelector('.empty-state');
+      if (emptyRow) {
+        emptyRow.closest('tr').remove();
+      }
+
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td>`;
+      auditBody.insertBefore(row, auditBody.firstChild);
+    });
+
+    loadDashboard();
+  </script>
+</body>
+</html>
