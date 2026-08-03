@@ -449,6 +449,7 @@
         <button class="tab-btn" onclick="switchTab('announcer', this)">✉️ Messages</button>
         <button class="tab-btn" onclick="switchTab('audit', this)">📜 Audit Logs</button>
         <button class="tab-btn" onclick="switchTab('logging', this)">📝 Logging</button>
+        <button class="tab-btn" onclick="switchTab('welcome', this)">👋 Welcome</button>
 
         <div class="sidebar-group-label">Roblox</div>
         <button class="tab-btn" onclick="switchTab('bindings', this)">🔗 Bindings</button>
@@ -1075,6 +1076,24 @@
       </div>
     </div>
 
+    <div id="tab-welcome" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>👋 Welcome / Goodbye</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Placeholders: <code>{user}</code> (mention), <code>{username}</code>, <code>{server}</code>, <code>{membercount}</code>
+          </div>
+          <div class="toggle-row"><span>Enable Welcome/Goodbye</span><label class="switch"><input type="checkbox" id="wc_enabled"><span class="slider"></span></label></div>
+          <div class="input-group"><label>Channel</label><select id="wc_channelSelect"></select></div>
+          <div class="input-group"><label>Autorole (given to new members)</label><select id="wc_autoRoleSelect"><option value="">-- None --</option></select></div>
+          <div class="input-group"><label>Join Message</label><textarea id="wc_joinMessage" rows="2" placeholder="Welcome {user} to {server}!"></textarea></div>
+          <div class="toggle-row"><span>Send Goodbye Message</span><label class="switch"><input type="checkbox" id="wc_leaveEnabled"><span class="slider"></span></label></div>
+          <div class="input-group"><label>Leave Message</label><textarea id="wc_leaveMessage" rows="2" placeholder="{username} has left {server}."></textarea></div>
+          <button class="action-btn" onclick="saveWelcomeSettings()">Save</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 8: COMMAND MANAGER -->
     <div id="tab-commands" class="tab-content">
       <div class="card">
@@ -1212,7 +1231,7 @@
       'livechat': 'chatlogs', 'chatlogs': 'chatlogs',
       'moderation': 'modcenter', 'modcenter': 'modcenter',
       'automod': 'automod', 'remotemod': 'remotemod', 'gamemanager': 'gamemanager',
-      'bypasses': 'bypasses', 'analytics': 'analytics', 'audit': 'audit', 'logging': 'logging',
+      'bypasses': 'bypasses', 'analytics': 'analytics', 'audit': 'audit', 'logging': 'logging', 'welcome': 'welcome',
       'commands': 'commands', 'announcer': 'announcer', 'economy': 'economy',
       'tickets': 'tickets', 'database': 'database', 'webhooks': 'webhooks',
       'developer': 'developer', 'landingpage': 'landingpage', 'joinroles': 'joinroles',
@@ -1485,6 +1504,30 @@
           });
         }
       } catch (e) { console.error('[Apex] Logging render failed:', e); }
+
+      try {
+        const wc = data.botState.welcome;
+        if (wc) {
+          document.getElementById('wc_enabled').checked = wc.enabled;
+          document.getElementById('wc_leaveEnabled').checked = wc.leaveEnabled;
+          document.getElementById('wc_joinMessage').value = wc.joinMessage;
+          document.getElementById('wc_leaveMessage').value = wc.leaveMessage;
+
+          const wcChannelSelect = document.getElementById('wc_channelSelect');
+          wcChannelSelect.innerHTML = '<option value="">-- Select a channel --</option>';
+          (data.channelsList || []).forEach(c => {
+            wcChannelSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+          });
+          if (wc.channelId) wcChannelSelect.value = wc.channelId;
+
+          const wcRoleSelect = document.getElementById('wc_autoRoleSelect');
+          wcRoleSelect.innerHTML = '<option value="">-- None --</option>';
+          (data.rolesList || []).forEach(r => {
+            wcRoleSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+          });
+          if (wc.autoRoleId) wcRoleSelect.value = wc.autoRoleId;
+        }
+      } catch (e) { console.error('[Apex] Welcome render failed:', e); }
 
       try {
         if (data.auditLogs && data.auditLogs.length > 0) {
@@ -2086,6 +2129,28 @@
           enabled: document.getElementById('log_enabled').checked,
           channelId: document.getElementById('log_channelSelect').value,
           events
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function saveWelcomeSettings() {
+      const res = await fetch('/api/welcome/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: document.getElementById('wc_enabled').checked,
+          channelId: document.getElementById('wc_channelSelect').value,
+          autoRoleId: document.getElementById('wc_autoRoleSelect').value,
+          joinMessage: document.getElementById('wc_joinMessage').value,
+          leaveEnabled: document.getElementById('wc_leaveEnabled').checked,
+          leaveMessage: document.getElementById('wc_leaveMessage').value
         })
       });
       const data = await res.json();
