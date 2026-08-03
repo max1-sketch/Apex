@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit an Appeal</title>
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --card-bg: #ffffff;
+      --card-border: #e5e7eb;
+      --accent: #3b82f6;
+      --accent-text: #ffffff;
+      --danger: #ef4444;
+      --danger-soft: #fdecec;
+      --success: #10b981;
+      --success-soft: #e8f9f3;
+      --text: #16181d;
+      --text-muted: #6b7280;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Arial, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 2.5rem 1.25rem; }
+    .wrap { width: 100%; max-width: 560px; }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 2rem; box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
+    h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem; }
+    .desc { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.75rem; line-height: 1.5; white-space: pre-wrap; }
+    .field { margin-bottom: 1.4rem; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
+    label .required { color: var(--danger); margin-left: 0.15rem; }
+    input[type="text"], textarea, select {
+      width: 100%; background: #f8f8fa; border: 1px solid var(--card-border); border-radius: 10px;
+      padding: 0.75rem 0.9rem; font-size: 0.9rem; color: var(--text); outline: none; transition: border-color .15s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); background: #fff; }
+    textarea { resize: vertical; min-height: 100px; }
+    button.submit-btn {
+      width: 100%; background: var(--accent); color: var(--accent-text); border: none; border-radius: 10px;
+      padding: 0.85rem 1rem; font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: 0.5rem;
+    }
+    button.submit-btn:hover { filter: brightness(0.95); }
+    button.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error-banner { background: var(--danger-soft); color: var(--danger); border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.85rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .center-state { text-align: center; padding: 3rem 1rem; }
+    .center-state .icon { font-size: 2.4rem; margin-bottom: 1rem; }
+    .center-state h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .center-state p { color: var(--text-muted); font-size: 0.9rem; }
+    .success-icon { color: var(--success); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="cardRoot">
+      <div class="center-state"><div class="icon">⏳</div><p>Loading form...</p></div>
+    </div>
+  </div>
+
+  <script>
+    const slug = window.location.pathname.split('/').filter(Boolean).pop();
+    let currentForm = null;
+
+    function renderQuestion(q) {
+      const req = q.required ? '<span class="required">*</span>' : '';
+      if (q.type === 'long_text') {
+        return `<div class="field"><label>${q.label}${req}</label><textarea data-qid="${q.id}" ${q.required ? 'required' : ''}></textarea></div>`;
+      }
+      if (q.type === 'dropdown') {
+        const opts = (q.options || []).map(o => `<option value="${o}">${o}</option>`).join('');
+        return `<div class="field"><label>${q.label}${req}</label><select data-qid="${q.id}" ${q.required ? 'required' : ''}><option value="">Select...</option>${opts}</select></div>`;
+      }
+      return `<div class="field"><label>${q.label}${req}</label><input type="text" data-qid="${q.id}" ${q.required ? 'required' : ''}></div>`;
+    }
+
+    function renderError(message) {
+      document.getElementById('cardRoot').innerHTML = `
+        <div class="center-state">
+          <div class="icon">🚫</div>
+          <h2>Can't load this form</h2>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+
+    function renderForm(form) {
+      currentForm = form;
+      const questionsHtml = form.questions.map(renderQuestion).join('');
+      document.getElementById('cardRoot').innerHTML = `
+        <h1>${form.title}</h1>
+        ${form.description ? `<div class="desc">${form.description}</div>` : ''}
+        <div id="errorBanner"></div>
+        <form id="appealForm">
+          ${questionsHtml || '<p style="color:var(--text-muted); font-size:0.85rem;">This form has no questions configured yet.</p>'}
+          <button type="submit" class="submit-btn" id="submitBtn">Submit Appeal</button>
+        </form>
+      `;
+      document.getElementById('appealForm').addEventListener('submit', onSubmit);
+    }
+
+    function renderSuccess() {
+      document.getElementById('cardRoot').innerHTML = `
+        <div class="center-state">
+          <div class="icon success-icon">✅</div>
+          <h2>Appeal submitted</h2>
+          <p>Thanks — staff will review your response and follow up.</p>
+        </div>
+      `;
+    }
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerText = 'Submitting...';
+
+      const answers = {};
+      currentForm.questions.forEach(q => {
+        const el = document.querySelector(`[data-qid="${q.id}"]`);
+        if (el) answers[q.id] = el.value;
+      });
+
+      try {
+        const res = await fetch(`/api/appeals/public/${slug}/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers })
+        });
+        const data = await res.json();
+        if (data.success) {
+          renderSuccess();
+        } else {
+          document.getElementById('errorBanner').innerHTML = `<div class="error-banner">${data.error}</div>`;
+          btn.disabled = false;
+          btn.innerText = 'Submit Appeal';
+        }
+      } catch (err) {
+        document.getElementById('errorBanner').innerHTML = `<div class="error-banner">Something went wrong submitting your appeal. Try again.</div>`;
+        btn.disabled = false;
+        btn.innerText = 'Submit Appeal';
+      }
+    }
+
+    async function init() {
+      if (!slug) return renderError('No form specified in the URL.');
+      try {
+        const res = await fetch(`/api/appeals/public/${slug}`);
+        const data = await res.json();
+        if (data.success) {
+          renderForm(data.form);
+        } else {
+          renderError(data.error || 'This form is unavailable.');
+        }
+      } catch (err) {
+        renderError('Could not reach the server. Try again shortly.');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
