@@ -1748,32 +1748,38 @@
         list.innerHTML = '<div class="card"><div class="empty-state">No appeal forms yet — create one to get started.</div></div>';
         return;
       }
+      const banFormId = (globalData.botState && globalData.botState.appeals) ? globalData.botState.appeals.banAppealFormId : null;
       list.innerHTML = '';
       forms.forEach(f => {
         const url = `${window.location.origin}/appeal/${f.slug}`;
+        const isBanForm = f.id === banFormId;
         const card = document.createElement('div');
         card.className = 'card';
         card.style.marginBottom = '1rem';
         card.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
             <div>
-              <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
                 <span style="font-weight:700; font-size:1rem;">${f.title}</span>
                 <span class="status-pill ${f.status === 'draft' ? 'revoked' : ''}">${f.status}</span>
+                ${isBanForm ? '<span class="status-pill" style="background:var(--accent-soft); color:var(--accent);">⭐ Ban Appeal Form</span>' : ''}
               </div>
               <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.3rem;">${f.description || ''}</div>
             </div>
-            <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+            <div style="display:flex; gap:0.5rem; flex-shrink:0; flex-wrap:wrap;">
               <button class="revoke-btn" onclick="openAppealResponsesModal('${f.id}')">Responses (${f.responseCount})</button>
               <button class="revoke-btn" onclick="openEditAppealFormModal('${f.id}')">Edit</button>
               <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="deleteAppealForm('${f.id}', '${f.title.replace(/'/g, "\\'")}')">Delete</button>
             </div>
           </div>
           ${f.status === 'published' ? `
-            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; background:var(--soft-surface); border:1px solid var(--card-border); border-radius:10px; padding:0.6rem 0.8rem;">
-              <span style="font-size:0.8rem; color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${url}</span>
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; background:var(--soft-surface); border:1px solid var(--card-border); border-radius:10px; padding:0.6rem 0.8rem; flex-wrap:wrap;">
+              <span style="font-size:0.8rem; color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:120px;">${url}</span>
               <button class="revoke-btn" onclick="copyAppealUrl('${url}')">Copy</button>
               <button class="revoke-btn" onclick="window.open('${url}', '_blank')">Open</button>
+              ${isBanForm
+                ? `<button class="revoke-btn" onclick="setBanAppealForm(null)">Unset as Ban Appeal Form</button>`
+                : `<button class="revoke-btn" onclick="setBanAppealForm('${f.id}')">Use as Ban Appeal Form</button>`}
             </div>
           ` : ''}
         `;
@@ -1927,6 +1933,22 @@
       const data = await res.json();
       if (data.success) {
         showToast('Form deleted.', 'success');
+        loadAppeals();
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function setBanAppealForm(formId) {
+      const res = await fetch('/api/appeals/set-ban-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        globalData = data.payload;
+        showToast(data.message, 'success');
         loadAppeals();
       } else {
         showToast(data.error, 'error');
@@ -2553,10 +2575,29 @@
       data.actions.forEach(a => {
         const item = document.createElement('div');
         item.className = 'activity-item';
+
+        let appealHtml = '';
+        if (a.appealStatus === 'pending') {
+          appealHtml = `
+            <div style="margin-top:0.6rem; background:var(--warning-soft); border-radius:8px; padding:0.6rem 0.8rem;">
+              <div style="font-size:0.78rem; font-weight:700; margin-bottom:0.3rem;">⏳ Appeal pending review</div>
+              <div style="font-size:0.82rem; margin-bottom:0.6rem;">${a.appealReason || ''}</div>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="revoke-btn" onclick="resolveCaseAppeal('${a.id}', 'accept', this)">Accept</button>
+                <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="resolveCaseAppeal('${a.id}', 'reject', this)">Reject</button>
+              </div>
+            </div>
+          `;
+        } else if (a.appealStatus === 'accepted') {
+          appealHtml = `<div class="activity-meta" style="margin-top:0.4rem;"><span class="status-pill">✅ Appeal accepted</span></div>`;
+        } else if (a.appealStatus === 'rejected') {
+          appealHtml = `<div class="activity-meta" style="margin-top:0.4rem;"><span class="status-pill revoked">❌ Appeal rejected</span></div>`;
+        }
+
         item.innerHTML = `
           <div class="activity-row">
             <div class="activity-icon-circle">${MOD_TYPE_ICONS[a.type] || '🛡️'}</div>
-            <div>
+            <div style="flex:1;">
               <span class="activity-badge ${a.type}">${a.type}</span>
               <span class="activity-target">${a.targetLabel}</span>
               <span class="status-pill ${a.status === 'revoked' ? 'revoked' : ''}">${a.status}</span>
@@ -2567,6 +2608,7 @@
                 <span>·</span>
                 <span>${timeAgo(a.timestamp)}</span>
               </div>
+              ${appealHtml}
             </div>
           </div>
           ${a.status === 'active' && a.type !== 'kick' ? `<button class="icon-btn" title="Revoke" onclick="revokeModerationAction('${a.id}', this)">🗑️</button>` : ''}
@@ -2587,6 +2629,19 @@
         showToast(data.error, 'error');
         btn.disabled = false;
         btn.innerText = '🗑️';
+      }
+    }
+
+    async function resolveCaseAppeal(id, decision, btn) {
+      btn.disabled = true;
+      const res = await fetch(`/api/moderation/actions/${id}/appeal/${decision}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadModCenter();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
       }
     }
 
