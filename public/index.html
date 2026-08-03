@@ -7,18 +7,26 @@
   <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
-      --bg: #0a0a0c;
-      --sidebar-bg: #0d0d10;
-      --card-bg: #16161a;
-      --card-border: rgba(255, 255, 255, 0.08);
-      --accent: #ffffff;
-      --accent-text: #000000;
-      --accent-glow: rgba(255, 255, 255, 0.08);
-      --danger: #ff5566;
-      --success: #3ddc84;
-      --warning: #ffcc4d;
-      --text: #f5f5f7;
-      --text-muted: #8a8a94;
+      --bg: #0b0d12;
+      --sidebar-bg: #0f1117;
+      --card-bg: #151822;
+      --card-border: #262b38;
+      --card-border-soft: #1c202b;
+      --accent: #4f8ef7;
+      --accent-soft: rgba(79,142,247,0.15);
+      --accent-text: #ffffff;
+      --secondary-accent: #a78bfa;
+      --danger: #f87171;
+      --danger-soft: rgba(248,113,113,0.15);
+      --success: #34d399;
+      --success-soft: rgba(52,211,153,0.15);
+      --warning: #fbbf24;
+      --warning-soft: rgba(251,191,36,0.15);
+      --orange: #fb923c;
+      --text: #f3f4f6;
+      --text-muted: #9aa1ac;
+      --text-faint: #6b7280;
+      --soft-surface: #1a1d26;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Arial, sans-serif; }
@@ -27,7 +35,6 @@
       background-color: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      background-image: radial-gradient(at 15% 0%, rgba(255,255,255,0.04) 0px, transparent 50%);
     }
 
     .app-layout {
@@ -49,63 +56,80 @@
     }
 
     .sidebar-header {
-      padding: 1.5rem 1.1rem;
+      padding: 1.4rem 1.1rem;
       border-bottom: 1px solid var(--card-border);
     }
 
     .logo-brand { display: flex; align-items: center; gap: 0.65rem; }
     .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #fff, #b8b8c0);
-      color: var(--accent-text);
-      border-radius: 10px;
+      width: 34px;
+      height: 34px;
+      background: radial-gradient(circle at 35% 30%, #38bdf8 0%, #0ea5e9 45%, #1e3a8a 100%);
+      color: #fff;
+      border-radius: 9px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       flex-shrink: 0;
-      box-shadow: 0 4px 16px rgba(255,255,255,0.12);
+      box-shadow: 0 4px 14px rgba(14,165,233,0.35);
     }
-    .logo-text { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; }
+    .logo-text { font-size: 1.0rem; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
     .logo-text span { color: var(--text-muted); font-weight: 400; }
 
     .status-badge {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      margin-top: 1rem;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--card-border);
-      padding: 0.45rem 0.75rem;
+      margin-top: 0.9rem;
+      background: var(--success-soft);
+      border: 1px solid rgba(52,211,153,0.3);
+      padding: 0.4rem 0.7rem;
       border-radius: 20px;
-      font-size: 0.75rem;
-      color: var(--text-muted);
+      font-size: 0.73rem;
+      color: var(--success);
+      font-weight: 600;
     }
-    .status-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px var(--success); }
+    .status-dot { width: 7px; height: 7px; background: var(--success); border-radius: 50%; flex-shrink: 0; }
+    .status-badge.offline { background: var(--danger-soft); border-color: rgba(248,113,113,0.3); color: var(--danger); }
+    .status-dot.offline { background: var(--danger); }
 
     .sidebar-tabs {
       flex: 1;
       overflow-y: auto;
-      padding: 0.85rem 0.65rem;
+      padding: 0.75rem 0.65rem 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 0.2rem;
+      gap: 0.1rem;
     }
 
     .sidebar-tabs::-webkit-scrollbar { width: 5px; }
     .sidebar-tabs::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
 
+    .sidebar-group-label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+      padding: 0.9rem 0.7rem 0.4rem;
+    }
+    .sidebar-group-label:first-child { padding-top: 0.4rem; }
+
+    .sidebar-footer { display: flex; align-items: center; gap: 0.6rem; padding: 0.9rem 1rem; border-top: 1px solid var(--card-border); flex-shrink: 0; }
+    .sidebar-footer-avatar { width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #38bdf8 0%, #0ea5e9 45%, #1e3a8a 100%); color: #fff; font-weight: 700; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sidebar-footer-name { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+
     .tab-btn {
       background: transparent;
       border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 0.65rem 0.8rem;
+      padding: 0.55rem 0.7rem;
       font-weight: 500;
       font-size: 0.85rem;
       cursor: pointer;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 0.6rem;
@@ -115,13 +139,12 @@
       transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .tab-btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .tab-btn:hover { background: var(--accent-soft); color: var(--accent); }
 
     .tab-btn.active {
-      background: var(--accent);
-      color: var(--accent-text);
+      background: var(--accent-soft);
+      color: var(--accent);
       font-weight: 700;
-      box-shadow: 0 4px 14px rgba(255,255,255,0.1);
     }
 
     .badge-new {
@@ -134,7 +157,6 @@
       letter-spacing: 0.03em;
       margin-left: auto;
     }
-    .tab-btn.active .badge-new { background: var(--accent-text); color: var(--accent); }
 
     /* ============ MAIN CONTENT ============ */
     .main-content {
@@ -155,7 +177,7 @@
       border: 1px solid var(--card-border);
       border-radius: 14px;
       padding: 1.5rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
 
     .card h2 {
@@ -172,7 +194,7 @@
     label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
     input[type="text"], input[type="number"], input[type="color"], textarea, select {
-      background: rgba(0,0,0,0.35);
+      background: var(--soft-surface);
       border: 1px solid var(--card-border);
       border-radius: 10px;
       padding: 0.7rem 0.9rem;
@@ -183,7 +205,7 @@
       transition: border-color 0.15s;
     }
 
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); background: var(--card-bg); }
 
     button.action-btn {
       background: var(--accent);
@@ -196,17 +218,17 @@
       width: 100%;
       font-size: 0.87rem;
       transition: all 0.15s;
-      box-shadow: 0 4px 14px rgba(255,255,255,0.08);
+      box-shadow: 0 2px 10px rgba(79,142,247,0.3);
     }
 
-    button.action-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(255,255,255,0.14); }
+    button.action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(79,142,247,0.4); }
     button.action-btn:active { transform: translateY(0); }
-    button.maint-btn { background: var(--warning); color: #000; }
-    button.maint-btn.active { background: var(--danger); color: #fff; }
+    button.maint-btn { background: var(--warning); color: #1a1200; box-shadow: none; }
+    button.maint-btn.active { background: var(--danger); color: #2c0d0d; }
 
     .custom-dropdown { position: relative; width: 100%; }
     .dropdown-header {
-      background: rgba(0,0,0,0.35);
+      background: var(--soft-surface);
       border: 1px solid var(--card-border);
       border-radius: 10px;
       padding: 0.7rem 0.9rem;
@@ -222,32 +244,32 @@
       top: 105%;
       left: 0;
       right: 0;
-      background: #1a1a1e;
+      background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 10px;
       max-height: 250px;
       overflow-y: auto;
       z-index: 100;
       padding: 0.5rem;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
     }
     .dropdown-list.show { display: block; }
     .dropdown-item { padding: 0.55rem; cursor: pointer; border-radius: 6px; font-size: 0.82rem; }
-    .dropdown-item:hover { background: rgba(255,255,255,0.06); }
+    .dropdown-item:hover { background: var(--accent-soft); }
 
     .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
     .switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2a2a30; transition: 0.2s; border-radius: 22px; }
-    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: 0.2s; border-radius: 50%; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2a2d38; transition: 0.2s; border-radius: 22px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: #cfd2d9; transition: 0.2s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
     input:checked + .slider { background-color: var(--accent); }
-    input:checked + .slider:before { transform: translateX(20px); background-color: var(--accent-text); }
+    input:checked + .slider:before { transform: translateX(20px); background-color: #fff; }
     .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.95rem; font-size: 0.87rem; }
 
-    .tag { background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); padding: 0.28rem 0.7rem; border-radius: 16px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.4rem; margin: 0.15rem; }
+    .tag { background: var(--accent-soft); border: 1px solid rgba(79,142,247,0.3); padding: 0.28rem 0.7rem; border-radius: 16px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.4rem; margin: 0.15rem; color: #9dc0fb; }
     .tag span { cursor: pointer; color: var(--danger); font-weight: bold; }
 
     .chatbox {
-      background: rgba(0,0,0,0.35);
+      background: var(--soft-surface);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       height: 420px;
@@ -262,34 +284,91 @@
       justify-content: space-between;
       align-items: flex-start;
       padding: 0.7rem;
-      background: rgba(255,255,255,0.02);
+      background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 8px;
       cursor: pointer;
       transition: background 0.15s;
     }
-    .chat-msg:hover { background: rgba(255,255,255,0.05); }
+    .chat-msg:hover { background: var(--accent-soft); }
     .chat-user { font-weight: 700; font-size: 0.82rem; color: var(--text); }
-    .chat-channel { font-size: 0.7rem; background: rgba(255,255,255,0.08); padding: 0.12rem 0.45rem; border-radius: 4px; margin-left: 0.4rem; color: var(--text-muted); }
-    .chat-text { font-size: 0.87rem; color: #d0d0d5; margin-top: 0.25rem; }
-    .del-btn { background: var(--danger); border: none; color: white; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 600; }
+    .chat-channel { font-size: 0.7rem; background: var(--card-border-soft); padding: 0.12rem 0.45rem; border-radius: 4px; margin-left: 0.4rem; color: var(--text-muted); }
+    .chat-text { font-size: 0.87rem; color: #c7cad1; margin-top: 0.25rem; }
+    .del-btn { background: var(--danger); border: none; color: #2c0d0d; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.72rem; font-weight: 600; }
 
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); z-index: 2000; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; backdrop-filter: blur(3px); align-items: center; justify-content: center; }
     .modal-overlay.show { display: flex; }
-    .modal { background: #16161a; border: 1px solid var(--card-border); border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 460px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+    .modal { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 460px; box-shadow: 0 25px 60px rgba(0,0,0,0.6); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem; }
     .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 0.9rem; }
 
     #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 10px; }
-    .toast { padding: 12px 20px; border-radius: 10px; color: #fff; font-weight: 600; font-size: 0.87rem; box-shadow: 0 10px 25px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px; animation: slideIn 0.25s ease; }
-    .toast.success { background: #0f2a1b; border: 1px solid var(--success); color: var(--success); }
-    .toast.error { background: #2a0f14; border: 1px solid var(--danger); color: var(--danger); }
+    .toast { padding: 12px 20px; border-radius: 10px; color: #fff; font-weight: 600; font-size: 0.87rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px; animation: slideIn 0.25s ease; }
+    .toast.success { background: #159a67; }
+    .toast.error { background: #c23a3a; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     th, td { padding: 0.85rem 1rem; text-align: left; border-bottom: 1px solid var(--card-border); }
     th { color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; }
     .empty-state { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.87rem; }
+
+    /* ============ DASHBOARD HOME ============ */
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+    .page-header-left { display: flex; align-items: center; gap: 0.9rem; }
+    .page-logo { width: 46px; height: 46px; border-radius: 12px; background: radial-gradient(circle at 35% 30%, #38bdf8 0%, #0ea5e9 45%, #1e3a8a 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 1.2rem; flex-shrink: 0; }
+    .page-header h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.6rem; }
+    .page-header p { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .live-chip { font-size: 0.68rem; font-weight: 700; background: var(--success-soft); color: var(--success); padding: 0.15rem 0.55rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.3rem; }
+
+    .section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+    .connected-game-card { display: flex; align-items: center; gap: 0.9rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.1rem 1.3rem; }
+    .connected-game-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+    .connected-game-name { font-weight: 700; font-size: 0.95rem; }
+    .connected-game-id { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ============ MODERATION CENTER ============ */
+    .modcenter-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+    .modcenter-header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.01em; }
+    .modcenter-header p { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 1.25rem 1.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .stat-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.6rem; }
+    .stat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .stat-value { font-size: 1.9rem; font-weight: 800; }
+
+    .filter-bar { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .pill-toggle { display: flex; background: var(--soft-surface); border: 1px solid var(--card-border); border-radius: 10px; padding: 0.25rem; gap: 0.2rem; }
+    .pill-btn { background: transparent; border: none; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; padding: 0.5rem 0.9rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+    .pill-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .filter-search { flex: 1; min-width: 200px; }
+
+    .activity-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--card-border); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-badge { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.2rem 0.55rem; border-radius: 6px; margin-right: 0.5rem; }
+    .activity-badge.ban { background: var(--danger-soft); color: var(--danger); }
+    .activity-badge.mute { background: var(--warning-soft); color: var(--warning); }
+    .activity-badge.warn { background: var(--warning-soft); color: var(--warning); }
+    .activity-badge.kick { background: var(--accent-soft); color: var(--accent); }
+    .status-pill { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.5rem; border-radius: 5px; background: var(--success-soft); color: var(--success); margin-left: 0.4rem; }
+    .status-pill.revoked { background: var(--card-border-soft); color: var(--text-muted); }
+    .activity-target { font-weight: 700; font-size: 0.9rem; }
+    .activity-reason { font-size: 0.83rem; color: #c7cad1; margin-top: 0.2rem; }
+    .activity-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .platform-chip { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.1rem 0.45rem; border-radius: 5px; background: var(--card-border-soft); }
+    .revoke-btn { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); padding: 0.4rem 0.7rem; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-weight: 600; flex-shrink: 0; transition: all 0.15s; }
+    .revoke-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+
+    .action-type-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1.15rem; }
+    .action-type-btn { background: var(--soft-surface); border: 1px solid var(--card-border); color: var(--text-muted); padding: 0.65rem 0.4rem; border-radius: 10px; cursor: pointer; font-size: 0.78rem; font-weight: 600; text-align: center; transition: all 0.15s; }
+    .action-type-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .activity-row { display: flex; gap: 0.9rem; align-items: flex-start; flex: 1; min-width: 0; }
+    .activity-icon-circle { width: 34px; height: 34px; border-radius: 50%; background: var(--soft-surface); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
+    .icon-btn { background: transparent; border: 1px solid var(--card-border); color: var(--text-muted); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; transition: all 0.15s; }
+    .icon-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
   </style>
 </head>
 <body>
@@ -304,7 +383,7 @@
           <h3 id="modalUserTag" style="font-size:1.1rem; color:#fff;">User Actions</h3>
           <div id="modalUserIdText" style="font-size:0.75rem; color:var(--text-muted)">ID: --</div>
         </div>
-        <button onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">&times;</button>
+        <button onclick="closeModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
       </div>
 
       <div class="input-group">
@@ -342,38 +421,213 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo-brand">
-          <div class="logo-icon">A</div>
+          <div class="logo-icon">🌊</div>
           <div class="logo-text">Apex <span>Control Suite</span></div>
         </div>
-        <div class="status-badge">
-          <div class="status-dot"></div>
+        <div class="status-badge" id="headerStatusBadge">
+          <div class="status-dot" id="headerStatusDot"></div>
           <span id="headerBotTag">Connecting Engine...</span>
         </div>
       </div>
 
       <nav class="sidebar-tabs" id="tabScrollContainer">
-        <button class="tab-btn active" onclick="switchTab('system', this)">⚡ System</button>
+        <button class="tab-btn active" onclick="switchTab('dashboard', this)">🏠 Dashboard</button>
+
+        <div class="sidebar-group-label">Settings</div>
+        <button class="tab-btn" onclick="switchTab('system', this)">⚙️ General</button>
+        <button class="tab-btn" onclick="switchTab('landingpage', this)">🌐 Landing Page</button>
+        <button class="tab-btn" onclick="switchTab('joinroles', this)">🎓 Join Roles</button>
+        <button class="tab-btn" onclick="switchTab('commands', this)">🛡️ Commands</button>
+        <button class="tab-btn" onclick="switchTab('developer', this)">🔑 API Keys</button>
+
+        <div class="sidebar-group-label">Management</div>
+        <button class="tab-btn" onclick="switchTab('applications', this)">📋 Applications</button>
+        <button class="tab-btn" onclick="switchTab('appeals', this)">⚖️ Appeals</button>
+        <button class="tab-btn" onclick="switchTab('tickets', this)">🎟️ Tickets</button>
+        <button class="tab-btn" onclick="switchTab('staffmanagement', this)">👥 Staff Management</button>
+        <button class="tab-btn" onclick="switchTab('loa', this)">🌴 LOA Requests</button>
+        <button class="tab-btn" onclick="switchTab('announcer', this)">✉️ Messages</button>
+        <button class="tab-btn" onclick="switchTab('audit', this)">📜 Audit Logs</button>
+        <button class="tab-btn" onclick="switchTab('logging', this)">📝 Logging</button>
+
+        <div class="sidebar-group-label">Roblox</div>
+        <button class="tab-btn" onclick="switchTab('bindings', this)">🔗 Bindings</button>
+        <button class="tab-btn" onclick="switchTab('groupmanager', this)">👨‍👩‍👧 Group Manager</button>
+        <button class="tab-btn" onclick="switchTab('analytics', this)">📈 Activity</button>
+        <button class="tab-btn" onclick="switchTab('modcenter', this)">🛡️ Moderation</button>
+        <button class="tab-btn" onclick="switchTab('gamemanager', this)">🖥️ Server Manager</button>
+
+        <div class="sidebar-group-label">Automation</div>
         <button class="tab-btn" onclick="switchTab('automod', this)">🛡️ AutoMod</button>
-        <button class="tab-btn" onclick="switchTab('chatlogs', this)">💬 Live Chat</button>
         <button class="tab-btn" onclick="switchTab('remotemod', this)">🔨 Remote Mod</button>
-        <button class="tab-btn" onclick="switchTab('gamemanager', this)">🎮 Game Manager <span class="badge-new">NEW</span></button>
         <button class="tab-btn" onclick="switchTab('bypasses', this)">🔓 Bypasses</button>
-        <button class="tab-btn" onclick="switchTab('analytics', this)">📊 Analytics <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('audit', this)">📜 Audit Logs <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('commands', this)">⚙️ Commands <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('announcer', this)">📢 Announcer <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('economy', this)">💰 Economy <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('tickets', this)">🎟️ Tickets <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('database', this)">💾 Database <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('webhooks', this)">🔗 Webhooks <span class="badge-new">NEW</span></button>
-        <button class="tab-btn" onclick="switchTab('developer', this)">🔑 API Keys <span class="badge-new">NEW</span></button>
+        <button class="tab-btn" onclick="switchTab('chatlogs', this)">💬 Live Chat</button>
+        <button class="tab-btn" onclick="switchTab('economy', this)">💰 Economy</button>
+        <button class="tab-btn" onclick="switchTab('webhooks', this)">🔗 Webhooks</button>
+        <button class="tab-btn" onclick="switchTab('database', this)">💾 Database</button>
       </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-avatar">G</div>
+        <span class="sidebar-footer-name">golddoggo9...</span>
+      </div>
     </aside>
 
     <main class="main-content">
 
+    <!-- Stub pages: not wired to a backend yet, matches nav naming for now -->
+    <div id="tab-landingpage" class="tab-content"><div class="card"><h2>🌐 Landing Page</h2><div class="empty-state">Landing page editor isn't built yet. Let me know if you want this wired up.</div></div></div>
+    <div id="tab-joinroles" class="tab-content"><div class="card"><h2>🎓 Join Roles</h2><div class="empty-state">No join roles configured yet.</div></div></div>
+    <div id="tab-applications" class="tab-content"><div class="card"><h2>📋 Applications</h2><div class="empty-state">No pending applications.</div></div></div>
+    <div id="tab-appeals" class="tab-content">
+      <div class="modcenter-header">
+        <div>
+          <h1>Appeals</h1>
+          <p>Build appeal forms and share a URL people can respond to</p>
+        </div>
+        <button class="action-btn" style="width:auto;" onclick="openCreateAppealFormModal()">＋ Create Form</button>
+      </div>
+      <div id="appealFormsList">
+        <div class="empty-state">Loading appeal forms...</div>
+      </div>
+    </div>
+
+    <!-- CREATE APPEAL FORM MODAL -->
+    <div class="modal-overlay" id="createAppealFormModal">
+      <div class="modal" style="max-width:440px;">
+        <div class="modal-header">
+          <div><h3 style="font-size:1.1rem; color:var(--text);">Create Appeal Form</h3></div>
+          <button onclick="closeCreateAppealFormModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+        <div class="input-group"><label>Title</label><input type="text" id="newAppealTitle" placeholder="e.g. Ban Appeal"></div>
+        <div class="input-group"><label>Description</label><textarea id="newAppealDescription" rows="2" placeholder="What is this form for? Shown to the person filling it out."></textarea></div>
+        <button class="action-btn" onclick="createAppealForm()">Create</button>
+      </div>
+    </div>
+
+    <!-- EDIT APPEAL FORM MODAL (questions builder) -->
+    <div class="modal-overlay" id="editAppealFormModal">
+      <div class="modal" style="max-width:560px; max-height:85vh; overflow-y:auto;">
+        <div class="modal-header">
+          <div>
+            <h3 id="editAppealTitle" style="font-size:1.1rem; color:var(--text);">Edit Form</h3>
+            <div style="font-size:0.75rem; color:var(--text-muted)">Add and manage questions</div>
+          </div>
+          <button onclick="closeEditAppealFormModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <div id="editAppealQuestionsList" style="margin-bottom:1.1rem;"></div>
+
+        <div style="background:var(--soft-surface); border:1px solid var(--card-border); border-radius:10px; padding:0.9rem; margin-bottom:1.1rem;">
+          <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.6rem;">Add a Question</div>
+          <div class="input-group"><label>Question</label><input type="text" id="newQuestionLabel" placeholder="e.g. Why should you be unbanned?"></div>
+          <div class="modal-grid">
+            <div class="input-group" style="margin-bottom:0;">
+              <label>Type</label>
+              <select id="newQuestionType" onchange="toggleDropdownOptionsInput()">
+                <option value="short_text">Short Text</option>
+                <option value="long_text">Long Text</option>
+                <option value="dropdown">Dropdown</option>
+              </select>
+            </div>
+            <div class="input-group" style="margin-bottom:0;">
+              <label>Required</label>
+              <select id="newQuestionRequired"><option value="true">Yes</option><option value="false">No</option></select>
+            </div>
+          </div>
+          <div class="input-group" id="newQuestionOptionsGroup" style="display:none; margin-top:0.9rem;">
+            <label>Options (comma separated)</label>
+            <input type="text" id="newQuestionOptions" placeholder="Option A, Option B, Option C">
+          </div>
+          <button class="action-btn" style="margin-top:0.9rem;" onclick="addQuestionToEditingForm()">Add Question</button>
+        </div>
+
+        <div style="display:flex; gap:0.6rem;">
+          <button class="revoke-btn" style="width:auto; flex:1;" onclick="closeEditAppealFormModal()">Close</button>
+          <button class="action-btn" style="width:auto; flex:1;" id="publishToggleBtn" onclick="togglePublishEditingForm()">Publish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPEAL RESPONSES MODAL -->
+    <div class="modal-overlay" id="appealResponsesModal">
+      <div class="modal" style="max-width:560px; max-height:85vh; overflow-y:auto;">
+        <div class="modal-header">
+          <div><h3 id="responsesFormTitle" style="font-size:1.1rem; color:var(--text);">Responses</h3></div>
+          <button onclick="closeAppealResponsesModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+        <div id="appealResponsesList"></div>
+      </div>
+    </div>
+
+    <div id="tab-staffmanagement" class="tab-content"><div class="card"><h2>👥 Staff Management</h2><div class="empty-state">No staff roles configured yet.</div></div></div>
+
+    <div id="tab-loa" class="tab-content">
+      <div class="modcenter-header">
+        <div>
+          <h1>LOA Requests</h1>
+          <p>Review leave-of-absence submissions — accepting assigns the "On LOA" role and updates their nickname, which auto-reverts when the leave ends</p>
+        </div>
+      </div>
+
+      <div class="section-label">Pending <span id="loaPendingCount"></span></div>
+      <div id="loaPendingList" style="margin-bottom:1.75rem;">
+        <div class="card"><div class="empty-state">Loading requests...</div></div>
+      </div>
+
+      <div class="section-label">History</div>
+      <div id="loaHistoryList">
+        <div class="card"><div class="empty-state">Loading history...</div></div>
+      </div>
+    </div>
+
+    <div id="tab-bindings" class="tab-content"><div class="card"><h2>🔗 Bindings</h2><div class="empty-state">No Discord role ↔ Roblox rank bindings configured yet.</div></div></div>
+    <div id="tab-groupmanager" class="tab-content"><div class="card"><h2>👨‍👩‍👧 Group Manager</h2><div class="empty-state">Roblox group management isn't built yet.</div></div></div>
+
+    <!-- TAB 0: DASHBOARD (landing page) -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="page-logo">🌊</div>
+          <div>
+            <h1>Apex Roleplay Community <span class="live-chip"><span class="status-dot"></span>Bot active</span></h1>
+            <p>Your server at a glance</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Statistics</div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--text-faint)"></span>Pending Applications</div>
+          <div class="stat-value" id="dash_statApplications">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--text-faint)"></span>Pending Appeals</div>
+          <div class="stat-value" id="dash_statAppeals">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--accent)"></span>Staff Members</div>
+          <div class="stat-value" id="dash_statStaff">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--danger)"></span>Active Moderations</div>
+          <div class="stat-value" id="dash_statActiveMod">0</div>
+        </div>
+      </div>
+
+      <div class="section-label">Connected Games</div>
+      <div class="connected-game-card">
+        <div class="connected-game-icon">🎮</div>
+        <div>
+          <div class="connected-game-name" id="dash_gameName">DevPlace</div>
+          <div class="connected-game-id" id="dash_gameId">Waiting for Roblox roster data...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 1: SYSTEM & PRESENCE -->
-    <div id="tab-system" class="tab-content active">
+    <div id="tab-system" class="tab-content">
       <div class="grid">
         <div class="card">
           <h2>⚡ Maintenance Mode</h2>
@@ -415,6 +669,140 @@
       </div>
     </div>
 
+    <!-- TAB 1B: MODERATION CENTER (unified Discord + Roblox) -->
+    <div id="tab-modcenter" class="tab-content">
+      <div class="modcenter-header">
+        <div>
+          <h1>Moderation</h1>
+          <p>Manage bans, mutes, and warnings across all platforms</p>
+        </div>
+        <div style="display:flex; gap:0.6rem;">
+          <button class="action-btn" style="width:auto; background:var(--soft-surface); color:var(--text); border:1px solid var(--card-border); box-shadow:none;" onclick="openModSetupModal()">⚙️ Setup</button>
+          <button class="action-btn" style="width:auto; display:flex; align-items:center; gap:0.4rem;" onclick="openCreateActionModal()">＋ Create Action</button>
+        </div>
+      </div>
+
+      <div class="section-label">Overview</div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--danger)"></span>Active Bans</div>
+          <div class="stat-value" id="mc_statBans">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--warning)"></span>Active Mutes</div>
+          <div class="stat-value" id="mc_statMutes">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--warning)"></span>Warnings</div>
+          <div class="stat-value" id="mc_statWarnings">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label"><span class="stat-dot" style="background:var(--accent)"></span>Kicks</div>
+          <div class="stat-value" id="mc_statKicks">0</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="filter-bar" style="margin-bottom:0;">
+          <div class="pill-toggle">
+            <button class="pill-btn active" data-platform="all" onclick="setModPlatformFilter('all', this)">All</button>
+            <button class="pill-btn" data-platform="discord" onclick="setModPlatformFilter('discord', this)">Discord</button>
+            <button class="pill-btn" data-platform="roblox" onclick="setModPlatformFilter('roblox', this)">Roblox</button>
+          </div>
+          <input type="text" class="filter-search" id="mc_search" placeholder="Search for a user..." oninput="loadModCenter()">
+        </div>
+      </div>
+
+      <div class="section-label">Recent Activity <span id="mc_activityCount"></span></div>
+      <div class="card">
+        <div id="mc_activityList">
+          <div class="empty-state">Loading moderation activity...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROBLOX MODERATION SETUP MODAL (info only — explains how enforcement works) -->
+    <div class="modal-overlay" id="modSetupModal">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="font-size:1.1rem; color:var(--text);">Roblox Moderation Setup</h3>
+            <div style="font-size:0.75rem; color:var(--text-muted)">How Roblox bans are enforced in this project</div>
+          </div>
+          <button onclick="closeModSetupModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+        <div style="background:var(--accent-soft); border:1px solid rgba(79,142,247,0.3); border-radius:12px; padding:1rem; margin-bottom:0.9rem;">
+          <div style="font-weight:700; font-size:0.9rem; margin-bottom:0.4rem;">🔌 MessagingService + Lua Handler</div>
+          <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">Actions are published from this dashboard to your live Roblox servers over MessagingService, and carried out by <code>ApexAdminHandler.lua</code> in ServerScriptService.</div>
+          <ul style="font-size:0.8rem; color:var(--text-muted); padding-left:1.1rem; line-height:1.6;">
+            <li>Real-time delivery to live servers</li>
+            <li>Supports bans, unbans, kicks, mutes, and unmutes</li>
+            <li>Requires the game script to be installed and the game published</li>
+          </ul>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Ban enforcement uses Roblox's native <code>Players:BanAsync()</code> / <code>UnbanAsync()</code> API inside that script — not a third-party ban list.</div>
+        <button class="action-btn" style="margin-top:1.1rem;" onclick="closeModSetupModal()">Got it</button>
+      </div>
+    </div>
+
+    <!-- CREATE MODERATION ACTION MODAL -->
+    <div class="modal-overlay" id="createActionModal">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+          <div>
+            <h3 style="font-size:1.1rem; color:#fff;">Create Moderation Action</h3>
+            <div style="font-size:0.75rem; color:var(--text-muted)">Apply a ban, mute, warning, or kick</div>
+          </div>
+          <button onclick="closeCreateActionModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+
+        <label style="margin-bottom:0.5rem; display:block;">Action Type</label>
+        <div class="action-type-tabs">
+          <div class="action-type-btn selected" data-type="ban" onclick="selectActionType('ban', this)">Ban</div>
+          <div class="action-type-btn" data-type="mute" onclick="selectActionType('mute', this)">Mute</div>
+          <div class="action-type-btn" data-type="warn" onclick="selectActionType('warn', this)">Warning</div>
+          <div class="action-type-btn" data-type="kick" onclick="selectActionType('kick', this)">Kick</div>
+        </div>
+
+        <div class="input-group">
+          <label>Platform</label>
+          <select id="ca_platform" onchange="updateCreateActionFields()">
+            <option value="discord">Discord</option>
+            <option value="roblox">Roblox</option>
+          </select>
+        </div>
+
+        <div class="input-group" id="ca_discordIdGroup">
+          <label>Discord User ID</label>
+          <input type="text" id="ca_discordId" placeholder="123456789012345678">
+        </div>
+        <div class="input-group" id="ca_usernameGroup" style="display:none;">
+          <label>Roblox Username</label>
+          <input type="text" id="ca_username" placeholder="Roblox username">
+        </div>
+
+        <div class="input-group">
+          <label>Reason</label>
+          <textarea id="ca_reason" rows="2" placeholder="Why is this action being taken?"></textarea>
+        </div>
+
+        <div class="input-group">
+          <label>Duration (Discord bans/mutes only)</label>
+          <input type="text" id="ca_duration" placeholder="5m, 1h, 7d (blank = permanent)">
+        </div>
+
+        <div class="input-group">
+          <label>Evidence (optional)</label>
+          <textarea id="ca_evidence" rows="2" placeholder="Links, screenshots, or other evidence (optional)"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.6rem; margin-top:0.4rem;">
+          <button class="revoke-btn" style="width:auto;" onclick="closeCreateActionModal()">Cancel</button>
+          <button class="action-btn" style="width:auto; background:var(--danger)" id="ca_submitBtn" onclick="submitModerationAction()">Ban User</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 2: AUTOMOD ENGINE -->
     <div id="tab-automod" class="tab-content">
       <div class="grid">
@@ -440,6 +828,39 @@
           </div>
           <div id="wordsContainer"></div>
         </div>
+
+        <div class="card">
+          <h2>🔥 Roast Targets</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Add a Discord user ID here — if that specific person trips an AutoMod word, they get a savage roast in chat instead of the normal boring strike message. Purely for laughs, still counts as a real strike.
+          </div>
+          <div style="display:flex; gap:0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="newRoastTargetInput" placeholder="Discord User ID..." style="flex:1;">
+            <button class="action-btn" style="width:auto; background:var(--danger);" onclick="addRoastTarget()">Add</button>
+          </div>
+          <div id="roastTargetsContainer"></div>
+        </div>
+
+        <div class="card">
+          <h2>💀 Roast Them Right Now</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            No waiting for them to say a bad word — pick a user and a channel, and the bot pings them with a fresh roast immediately.
+          </div>
+          <div class="input-group"><label>Discord User ID</label><input type="text" id="manualRoastUserId" placeholder="123456789012345678"></div>
+          <div class="input-group"><label>Channel</label><select id="manualRoastChannelSelect"></select></div>
+          <button class="action-btn" style="background:var(--danger);" onclick="sendManualRoast()">🔥 Roast Them</button>
+        </div>
+
+        <div class="card">
+          <h2>🎬 GIF Responder</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Whenever this specific user sends any message in any channel, the bot replies with your chosen GIF. Toggle it on/off from here or via <code>/gifresponder enable|disable</code> in Discord.
+          </div>
+          <div class="toggle-row"><span>Enabled</span><label class="switch"><input type="checkbox" id="gr_enabled"><span class="slider"></span></label></div>
+          <div class="input-group"><label>Target Discord User ID</label><input type="text" id="gr_targetUserId" placeholder="123456789012345678"></div>
+          <div class="input-group"><label>GIF URL</label><input type="text" id="gr_gifUrl" placeholder="https://tenor.com/view/... or a direct .gif link"></div>
+          <button class="action-btn" onclick="saveGifResponder()">Save</button>
+        </div>
       </div>
     </div>
 
@@ -447,7 +868,11 @@
     <div id="tab-chatlogs" class="tab-content">
       <div class="card">
         <h2>💬 Live Streamed Chatlogs & Filters</h2>
-        
+
+        <div id="chatOfflineBanner" style="display:none; background:var(--danger-soft); border:1px solid rgba(248,113,113,0.3); color:var(--danger); border-radius:10px; padding:0.7rem 1rem; font-size:0.83rem; font-weight:600; margin-bottom:1rem;">
+          ⚠️ Bot is currently offline/disconnected — new messages won't come in until it reconnects.
+        </div>
+
         <div class="grid" style="grid-template-columns: 1fr 1fr; margin-bottom:1rem;">
           <div class="input-group">
             <label>Channel Stream</label>
@@ -469,6 +894,10 @@
             <label>Search Messages</label>
             <input type="text" id="logSearchQuery" placeholder="Filter user or text..." onkeyup="filterLogSearch()">
           </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-bottom:0.6rem;">
+          <button class="revoke-btn" onclick="clearChatLog()">🧹 Clear Log</button>
         </div>
 
         <div class="chatbox" id="chatbox">Loading chat messages...</div>
@@ -618,6 +1047,34 @@
       </div>
     </div>
 
+    <div id="tab-logging" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>📝 Logging</h2>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Log message edits/deletes, member joins/leaves/bans, and role/channel changes to a Discord channel.
+          </div>
+          <div class="toggle-row"><span>Enable Logging</span><label class="switch"><input type="checkbox" id="log_enabled"><span class="slider"></span></label></div>
+          <div class="input-group"><label>Log Channel</label><select id="log_channelSelect"></select></div>
+          <button class="action-btn" onclick="saveLoggingSettings()">Save</button>
+        </div>
+
+        <div class="card">
+          <h2>⚙️ Event Toggles</h2>
+          <div class="toggle-row"><span>Message Deleted</span><label class="switch"><input type="checkbox" id="log_ev_messageDelete"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Message Edited</span><label class="switch"><input type="checkbox" id="log_ev_messageEdit"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Member Joined</span><label class="switch"><input type="checkbox" id="log_ev_memberJoin"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Member Left</span><label class="switch"><input type="checkbox" id="log_ev_memberLeave"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Member Banned</span><label class="switch"><input type="checkbox" id="log_ev_memberBan"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Member Unbanned</span><label class="switch"><input type="checkbox" id="log_ev_memberUnban"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Role Created</span><label class="switch"><input type="checkbox" id="log_ev_roleCreate"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Role Deleted</span><label class="switch"><input type="checkbox" id="log_ev_roleDelete"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Channel Created</span><label class="switch"><input type="checkbox" id="log_ev_channelCreate"><span class="slider"></span></label></div>
+          <div class="toggle-row"><span>Channel Deleted</span><label class="switch"><input type="checkbox" id="log_ev_channelDelete"><span class="slider"></span></label></div>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 8: COMMAND MANAGER -->
     <div id="tab-commands" class="tab-content">
       <div class="card">
@@ -640,11 +1097,26 @@
 
     <!-- TAB 10: ECONOMY -->
     <div id="tab-economy" class="tab-content">
-      <div class="card">
-        <h2>💰 Economy Module Settings</h2>
-        <div class="toggle-row"><span>Enable Economy</span><label class="switch"><input type="checkbox" id="rp_enableEconomy"><span class="slider"></span></label></div>
-        <div class="input-group"><label>Starting Balance ($)</label><input type="number" id="rp_startingBalance" value="500"></div>
-        <div class="input-group"><label>Daily Reward ($)</label><input type="number" id="rp_dailyReward" value="100"></div>
+      <div class="grid">
+        <div class="card">
+          <h2>💰 Economy Module Settings</h2>
+          <div class="toggle-row"><span>Enable Economy</span><label class="switch"><input type="checkbox" id="rp_enableEconomy"><span class="slider"></span></label></div>
+          <div class="input-group"><label>Currency Name</label><input type="text" id="rp_currencyName" placeholder="coins"></div>
+          <div class="input-group"><label>Starting Balance</label><input type="number" id="rp_startingBalance" value="500"></div>
+          <div class="input-group"><label>Daily Reward</label><input type="number" id="rp_dailyReward" value="100"></div>
+          <button class="action-btn" onclick="saveEconomySettings()">Save Settings</button>
+        </div>
+
+        <div class="card">
+          <h2>⚙️ Commands</h2>
+          <div style="font-size:0.85rem; color:var(--text-muted); line-height:1.9;">
+            <code>/balance</code> — check your (or someone else's) balance<br>
+            <code>/daily</code> — claim the daily reward (24h cooldown)<br>
+            <code>/work</code> — earn coins from a random job (30m cooldown)<br>
+            <code>/rob</code> — attempt to hack-steal coins from another player (1h cooldown, 45% success chance)<br>
+            <code>/leaderboard</code> — top 10 richest players
+          </div>
+        </div>
       </div>
     </div>
 
@@ -689,7 +1161,22 @@
   </div>
 
   <script>
-    const socket = io();
+    // Guarded — if socket.io.js failed to load or the connection breaks, this
+    // must NOT throw here, or every function below it never gets a chance to
+    // run and the whole dashboard (AutoMod, Bypasses, everything) goes dark.
+    let socket;
+    try {
+      socket = (typeof io === 'function') ? io() : null;
+      if (!socket) console.error('[Apex] socket.io client not found — live updates disabled, everything else still works.');
+    } catch (e) {
+      console.error('[Apex] socket.io failed to initialize:', e);
+      socket = null;
+    }
+    if (!socket) {
+      // No-op stub so every `socket.on(...)` call later in this file is safe.
+      socket = { on: () => {}, emit: () => {} };
+    }
+
     let globalData = {};
     let activeChatFilter = 'all';
     let targetModalUserId = null;
@@ -717,23 +1204,77 @@
       document.getElementById('tabScrollContainer').scrollBy({ left: amount, behavior: 'smooth' });
     }
 
-    function switchTab(name, element) {
+    // Maps a URL path segment to an internal tab id. Two friendly aliases
+    // (livechat -> chatlogs, moderation -> modcenter) since those internal
+    // ids aren't the nicest URLs; everything else just reuses the tab id.
+    const URL_TAB_MAP = {
+      '': 'dashboard', 'dashboard': 'dashboard',
+      'livechat': 'chatlogs', 'chatlogs': 'chatlogs',
+      'moderation': 'modcenter', 'modcenter': 'modcenter',
+      'automod': 'automod', 'remotemod': 'remotemod', 'gamemanager': 'gamemanager',
+      'bypasses': 'bypasses', 'analytics': 'analytics', 'audit': 'audit', 'logging': 'logging',
+      'commands': 'commands', 'announcer': 'announcer', 'economy': 'economy',
+      'tickets': 'tickets', 'database': 'database', 'webhooks': 'webhooks',
+      'developer': 'developer', 'landingpage': 'landingpage', 'joinroles': 'joinroles',
+      'applications': 'applications', 'appeals': 'appeals',
+      'staffmanagement': 'staffmanagement', 'bindings': 'bindings',
+      'groupmanager': 'groupmanager', 'loa': 'loa'
+    };
+    // Reverse of the above, for picking the nicest URL when switching tabs.
+    const TAB_URL_SLUG = { chatlogs: 'livechat', modcenter: 'moderation' };
+
+    function pathToTabId(pathname) {
+      const path = pathname.replace(/^\/|\/$/g, '');
+      return URL_TAB_MAP[path] || 'dashboard';
+    }
+
+    function activateTab(name) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      const targetBtn = element || event.target.closest('.tab-btn');
+
+      const targetBtn = document.querySelector(`[onclick*="switchTab('${name}'"]`);
       if (targetBtn) {
         targetBtn.classList.add('active');
-        targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        if (typeof targetBtn.scrollIntoView === 'function') {
+          try { targetBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (e) {}
+        }
       }
-      
-      document.getElementById(`tab-${name}`).classList.add('active');
+
+      const content = document.getElementById(`tab-${name}`);
+      if (content) content.classList.add('active');
 
       if (name === 'gamemanager') {
         loadRobloxChatlogs();
         loadRobloxRoster();
       }
+      if (name === 'modcenter') {
+        loadModCenter();
+      }
+      if (name === 'dashboard') {
+        loadDashboardHome();
+      }
+      if (name === 'appeals') {
+        loadAppeals();
+      }
+      if (name === 'loa') {
+        loadLoaRequests();
+      }
     }
+
+    function switchTab(name, element) {
+      activateTab(name);
+      const slug = TAB_URL_SLUG[name] || name;
+      const newPath = name === 'dashboard' ? '/' : `/${slug}`;
+      if (window.location.pathname !== newPath) {
+        history.pushState({ tab: name }, '', newPath);
+      }
+    }
+
+    // Back/forward browser buttons switch tabs too, instead of reloading.
+    window.addEventListener('popstate', (e) => {
+      const name = (e.state && e.state.tab) || pathToTabId(window.location.pathname);
+      activateTab(name);
+    });
 
     function toggleDropdown(id) { document.getElementById(id).classList.toggle('show'); }
 
@@ -792,83 +1333,170 @@
       else showToast(data.error, 'error');
     }
 
+    function applyBotStatus(online, tag) {
+      document.getElementById('headerBotTag').innerText = tag || (online ? 'Connected' : 'Offline');
+      document.getElementById('headerStatusBadge').classList.toggle('offline', !online);
+      document.getElementById('headerStatusDot').classList.toggle('offline', !online);
+      const banner = document.getElementById('chatOfflineBanner');
+      if (banner) banner.style.display = online ? 'none' : 'block';
+    }
+
     function renderDashboard(data) {
       globalData = data;
-      document.getElementById('headerBotTag').innerText = data.botInfo.tag;
 
-      const btn = document.getElementById('maintBtn');
-      const txt = document.getElementById('maintStatusText');
-      if (data.botState.isMaintenanceMode) {
-        btn.innerText = "MAINTENANCE ACTIVE (Click to Disable)";
-        btn.className = "action-btn maint-btn active";
-        txt.innerText = "Maintenance: Enabled";
-      } else {
-        btn.innerText = "Toggle Maintenance Mode";
-        btn.className = "action-btn maint-btn";
-        txt.innerText = "Maintenance: Disabled";
-      }
+      try { applyBotStatus(data.botInfo.online, data.botInfo.tag); } catch (e) { console.error('[Apex] status badge render failed:', e); }
 
-      document.getElementById('statusTypeSelect').value = data.botState.statusType;
-      document.getElementById('activityTypeSelect').value = data.botState.activityType;
-      document.getElementById('activityTextInput').value = data.botState.activityText;
-      document.getElementById('streamUrlInput').value = data.botState.streamUrl;
-      checkStreamUrl(data.botState.activityType);
+      try {
+        const btn = document.getElementById('maintBtn');
+        const txt = document.getElementById('maintStatusText');
+        if (data.botState.isMaintenanceMode) {
+          btn.innerText = "MAINTENANCE ACTIVE (Click to Disable)";
+          btn.className = "action-btn maint-btn active";
+          txt.innerText = "Maintenance: Enabled";
+        } else {
+          btn.innerText = "Toggle Maintenance Mode";
+          btn.className = "action-btn maint-btn";
+          txt.innerText = "Maintenance: Disabled";
+        }
 
-      const am = data.botState.autoMod;
-      document.getElementById('am_enabled').checked = am.enabled;
-      document.getElementById('am_blockProfanity').checked = am.blockProfanity;
-      document.getElementById('am_blockInvites').checked = am.blockInvites;
-      document.getElementById('am_blockLinks').checked = am.blockLinks;
-      document.getElementById('am_maxWarnings').value = am.maxWarnings;
-      document.getElementById('am_timeoutHours').value = am.timeoutHours;
+        document.getElementById('statusTypeSelect').value = data.botState.statusType;
+        document.getElementById('activityTypeSelect').value = data.botState.activityType;
+        document.getElementById('activityTextInput').value = data.botState.activityText;
+        document.getElementById('streamUrlInput').value = data.botState.streamUrl;
+        checkStreamUrl(data.botState.activityType);
+      } catch (e) { console.error('[Apex] System tab render failed:', e); }
 
-      const wContainer = document.getElementById('wordsContainer');
-      wContainer.innerHTML = '';
-      am.customBadWords.forEach(w => {
-        wContainer.innerHTML += `<div class="tag">${w} <span onclick="removeWord('${w}')">&times;</span></div>`;
-      });
+      // AutoMod + Bypasses — rendered early and independently so a failure
+      // anywhere else on the page can never take these two out with it.
+      try {
+        const am = data.botState.autoMod;
+        document.getElementById('am_enabled').checked = am.enabled;
+        document.getElementById('am_blockProfanity').checked = am.blockProfanity;
+        document.getElementById('am_blockInvites').checked = am.blockInvites;
+        document.getElementById('am_blockLinks').checked = am.blockLinks;
+        document.getElementById('am_maxWarnings').value = am.maxWarnings;
+        document.getElementById('am_timeoutHours').value = am.timeoutHours;
 
-      const rContainer = document.getElementById('roleBypassContainer');
-      rContainer.innerHTML = '';
-      data.rolesList.forEach(r => {
-        const checked = am.bypassRoles.includes(r.id) ? 'checked' : '';
-        rContainer.innerHTML += `<div class="toggle-row"><span>${r.name}</span><label class="switch"><input type="checkbox" class="role-bypass-cb" value="${r.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
-      });
-
-      const cContainer = document.getElementById('channelBypassContainer');
-      cContainer.innerHTML = '';
-      data.channelsList.forEach(c => {
-        const checked = am.bypassChannels.includes(c.id) ? 'checked' : '';
-        cContainer.innerHTML += `<div class="toggle-row"><span>#${c.name}</span><label class="switch"><input type="checkbox" class="channel-bypass-cb" value="${c.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
-      });
-
-      const chatList = document.getElementById('chatChannelList');
-      chatList.innerHTML = '';
-      data.channelsList.forEach(c => {
-        chatList.innerHTML += `<div class="dropdown-item channel-search-item" onclick="selectChatFilter('${c.id}', '#${c.name}')">#${c.name}</div>`;
-      });
-
-      const announceSelect = document.getElementById('announcerChannelSelect');
-      if (announceSelect) {
-        announceSelect.innerHTML = '';
-        data.channelsList.forEach(c => {
-          announceSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+        const wContainer = document.getElementById('wordsContainer');
+        wContainer.innerHTML = '';
+        (am.customBadWords || []).forEach(w => {
+          wContainer.innerHTML += `<div class="tag">${w} <span onclick="removeWord('${w}')">&times;</span></div>`;
         });
-      }
 
-      if (data.analytics) {
-        document.getElementById('ramVal').innerText = data.analytics.ramUsage || '-- MB';
-        document.getElementById('uptimeVal').innerText = data.analytics.uptime || '--';
-      }
+        const rtContainer = document.getElementById('roastTargetsContainer');
+        if (rtContainer) {
+          rtContainer.innerHTML = '';
+          const targets = am.roastTargets || [];
+          if (targets.length === 0) {
+            rtContainer.innerHTML = '<div style="font-size:0.82rem; color:var(--text-muted)">No roast targets set.</div>';
+          } else {
+            targets.forEach(id => {
+              rtContainer.innerHTML += `<div class="tag" style="background:var(--danger-soft); color:var(--danger); border-color:rgba(248,113,113,0.3);">${id} <span onclick="removeRoastTarget('${id}')">&times;</span></div>`;
+            });
+          }
+        }
+      } catch (e) { console.error('[Apex] AutoMod render failed:', e); }
 
-      if (data.auditLogs && data.auditLogs.length > 0) {
-        const auditBody = document.getElementById('auditTableBody');
-        auditBody.innerHTML = '';
-        data.auditLogs.forEach(log => {
-          auditBody.innerHTML += `<tr><td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td></tr>`;
+      try {
+        const am = data.botState.autoMod;
+        const rContainer = document.getElementById('roleBypassContainer');
+        rContainer.innerHTML = '';
+        (data.rolesList || []).forEach(r => {
+          const checked = (am.bypassRoles || []).includes(r.id) ? 'checked' : '';
+          rContainer.innerHTML += `<div class="toggle-row"><span>${r.name}</span><label class="switch"><input type="checkbox" class="role-bypass-cb" value="${r.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
         });
-      }
 
+        const cContainer = document.getElementById('channelBypassContainer');
+        cContainer.innerHTML = '';
+        (data.channelsList || []).forEach(c => {
+          const checked = (am.bypassChannels || []).includes(c.id) ? 'checked' : '';
+          cContainer.innerHTML += `<div class="toggle-row"><span>#${c.name}</span><label class="switch"><input type="checkbox" class="channel-bypass-cb" value="${c.id}" ${checked} onchange="saveBypasses()"><span class="slider"></span></label></div>`;
+        });
+      } catch (e) { console.error('[Apex] Bypasses render failed:', e); }
+
+      try {
+        const chatList = document.getElementById('chatChannelList');
+        chatList.innerHTML = '';
+        (data.channelsList || []).forEach(c => {
+          chatList.innerHTML += `<div class="dropdown-item channel-search-item" onclick="selectChatFilter('${c.id}', '#${c.name}')">#${c.name}</div>`;
+        });
+
+        const announceSelect = document.getElementById('announcerChannelSelect');
+        if (announceSelect) {
+          announceSelect.innerHTML = '';
+          (data.channelsList || []).forEach(c => {
+            announceSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+          });
+        }
+
+        const roastChannelSelect = document.getElementById('manualRoastChannelSelect');
+        if (roastChannelSelect) {
+          roastChannelSelect.innerHTML = '';
+          (data.channelsList || []).forEach(c => {
+            roastChannelSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+          });
+        }
+
+        const logChannelSelect = document.getElementById('log_channelSelect');
+        if (logChannelSelect) {
+          logChannelSelect.innerHTML = '<option value="">-- Select a channel --</option>';
+          (data.channelsList || []).forEach(c => {
+            logChannelSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+          });
+          if (data.botState.logging && data.botState.logging.channelId) {
+            logChannelSelect.value = data.botState.logging.channelId;
+          }
+        }
+      } catch (e) { console.error('[Apex] Channel dropdowns render failed:', e); }
+
+      try {
+        if (data.analytics) {
+          document.getElementById('ramVal').innerText = data.analytics.ramUsage || '-- MB';
+          document.getElementById('uptimeVal').innerText = data.analytics.uptime || '--';
+        }
+      } catch (e) { console.error('[Apex] Analytics render failed:', e); }
+
+      try {
+        const eco = data.botState.economy;
+        if (eco) {
+          document.getElementById('rp_enableEconomy').checked = eco.enabled;
+          document.getElementById('rp_currencyName').value = eco.currencyName;
+          document.getElementById('rp_startingBalance').value = eco.startingBalance;
+          document.getElementById('rp_dailyReward').value = eco.dailyReward;
+        }
+      } catch (e) { console.error('[Apex] Economy render failed:', e); }
+
+      try {
+        const gr = data.botState.gifResponder;
+        if (gr) {
+          document.getElementById('gr_enabled').checked = gr.enabled;
+          document.getElementById('gr_targetUserId').value = gr.targetUserId;
+          document.getElementById('gr_gifUrl').value = gr.gifUrl;
+        }
+      } catch (e) { console.error('[Apex] GIF Responder render failed:', e); }
+
+      try {
+        const log = data.botState.logging;
+        if (log) {
+          document.getElementById('log_enabled').checked = log.enabled;
+          Object.keys(log.events || {}).forEach(key => {
+            const el = document.getElementById(`log_ev_${key}`);
+            if (el) el.checked = log.events[key];
+          });
+        }
+      } catch (e) { console.error('[Apex] Logging render failed:', e); }
+
+      try {
+        if (data.auditLogs && data.auditLogs.length > 0) {
+          const auditBody = document.getElementById('auditTableBody');
+          auditBody.innerHTML = '';
+          data.auditLogs.forEach(log => {
+            auditBody.innerHTML += `<tr><td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td></tr>`;
+          });
+        }
+      } catch (e) { console.error('[Apex] Audit logs render failed:', e); }
+
+      try {
       if (data.commandsList) {
         const cmdList = document.getElementById('commandToggleList');
         cmdList.innerHTML = '';
@@ -876,16 +1504,19 @@
           cmdList.innerHTML += `<div class="toggle-row"><span>/${cmd}</span><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>`;
         });
       }
+      } catch (e) { console.error('[Apex] Commands list render failed:', e); }
 
-      const warnDiv = document.getElementById('warningsList');
-      warnDiv.innerHTML = '';
-      if (data.warningsList.length === 0) {
-        warnDiv.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted)">No user strikes tracked.</div>';
-      } else {
-        data.warningsList.forEach(w => {
-          warnDiv.innerHTML += `<div style="padding:0.5rem 0; border-bottom:1px solid var(--card-border)">User ID: <strong>${w.id}</strong> - ${w.count} Warning Strikes</div>`;
-        });
-      }
+      try {
+        const warnDiv = document.getElementById('warningsList');
+        warnDiv.innerHTML = '';
+        if (!data.warningsList || data.warningsList.length === 0) {
+          warnDiv.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted)">No user strikes tracked.</div>';
+        } else {
+          data.warningsList.forEach(w => {
+            warnDiv.innerHTML += `<div style="padding:0.5rem 0; border-bottom:1px solid var(--card-border)">User ID: <strong>${w.id}</strong> - ${w.count} Warning Strikes</div>`;
+          });
+        }
+      } catch (e) { console.error('[Apex] Warnings list render failed:', e); }
     }
 
     async function loadDashboard() {
@@ -996,6 +1627,476 @@
       }
     }
 
+    async function addRoastTarget() {
+      const input = document.getElementById('newRoastTargetInput');
+      if (!input.value.trim()) return showToast('Please enter a Discord user ID!', 'error');
+
+      const res = await fetch('/api/automod/roast-targets/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ userId: input.value.trim() })
+      });
+      const data = await res.json();
+      input.value = '';
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function removeRoastTarget(userId) {
+      const res = await fetch('/api/automod/roast-targets/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function sendManualRoast() {
+      const userId = document.getElementById('manualRoastUserId').value.trim();
+      const channelId = document.getElementById('manualRoastChannelSelect').value;
+      if (!userId) return showToast('Please enter a Discord user ID!', 'error');
+      if (!channelId) return showToast('No channel selected!', 'error');
+
+      const res = await fetch('/api/automod/send-roast', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ userId, channelId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        document.getElementById('manualRoastUserId').value = '';
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    // ============================================================
+    // APPEALS — form builder + shareable URL + responses
+    // ============================================================
+
+    let appealFormsCache = [];
+    let editingAppealForm = null;
+
+    async function loadAppeals() {
+      try {
+        const res = await fetch('/api/appeals/forms');
+        const data = await res.json();
+        appealFormsCache = data.forms || [];
+        renderAppealForms(appealFormsCache);
+      } catch (e) {
+        showToast('Failed to load appeal forms.', 'error');
+      }
+    }
+
+    function renderAppealForms(forms) {
+      const list = document.getElementById('appealFormsList');
+      if (!forms || forms.length === 0) {
+        list.innerHTML = '<div class="card"><div class="empty-state">No appeal forms yet — create one to get started.</div></div>';
+        return;
+      }
+      list.innerHTML = '';
+      forms.forEach(f => {
+        const url = `${window.location.origin}/appeal/${f.slug}`;
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '1rem';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <span style="font-weight:700; font-size:1rem;">${f.title}</span>
+                <span class="status-pill ${f.status === 'draft' ? 'revoked' : ''}">${f.status}</span>
+              </div>
+              <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.3rem;">${f.description || ''}</div>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+              <button class="revoke-btn" onclick="openAppealResponsesModal('${f.id}')">Responses (${f.responseCount})</button>
+              <button class="revoke-btn" onclick="openEditAppealFormModal('${f.id}')">Edit</button>
+              <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="deleteAppealForm('${f.id}', '${f.title.replace(/'/g, "\\'")}')">Delete</button>
+            </div>
+          </div>
+          ${f.status === 'published' ? `
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; background:var(--soft-surface); border:1px solid var(--card-border); border-radius:10px; padding:0.6rem 0.8rem;">
+              <span style="font-size:0.8rem; color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${url}</span>
+              <button class="revoke-btn" onclick="copyAppealUrl('${url}')">Copy</button>
+              <button class="revoke-btn" onclick="window.open('${url}', '_blank')">Open</button>
+            </div>
+          ` : ''}
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function openCreateAppealFormModal() { document.getElementById('createAppealFormModal').classList.add('show'); }
+    function closeCreateAppealFormModal() {
+      document.getElementById('createAppealFormModal').classList.remove('show');
+      document.getElementById('newAppealTitle').value = '';
+      document.getElementById('newAppealDescription').value = '';
+    }
+
+    async function createAppealForm() {
+      const title = document.getElementById('newAppealTitle').value.trim();
+      if (!title) return showToast('Please enter a title!', 'error');
+      const description = document.getElementById('newAppealDescription').value;
+
+      const res = await fetch('/api/appeals/forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description })
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeCreateAppealFormModal();
+        loadAppeals();
+        openEditAppealFormModal(data.form.id, data.form);
+        showToast('Form created — now add some questions!', 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    function openEditAppealFormModal(id, formOverride) {
+      const form = formOverride || appealFormsCache.find(f => f.id === id);
+      if (!form) return;
+      editingAppealForm = JSON.parse(JSON.stringify(form));
+      document.getElementById('editAppealTitle').innerText = form.title;
+      renderEditingQuestions();
+
+      const btn = document.getElementById('publishToggleBtn');
+      btn.innerText = editingAppealForm.status === 'published' ? 'Unpublish' : 'Publish';
+      btn.style.background = editingAppealForm.status === 'published' ? 'var(--text-muted)' : 'var(--accent)';
+
+      document.getElementById('editAppealFormModal').classList.add('show');
+    }
+
+    function closeEditAppealFormModal() {
+      document.getElementById('editAppealFormModal').classList.remove('show');
+      editingAppealForm = null;
+      loadAppeals();
+    }
+
+    function renderEditingQuestions() {
+      const list = document.getElementById('editAppealQuestionsList');
+      if (!editingAppealForm.questions || editingAppealForm.questions.length === 0) {
+        list.innerHTML = '<div style="font-size:0.82rem; color:var(--text-muted);">No questions yet — add one below.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      editingAppealForm.questions.forEach((q, idx) => {
+        list.innerHTML += `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--card-border);">
+            <div>
+              <div style="font-size:0.88rem; font-weight:600;">${q.label} ${q.required ? '<span style="color:var(--danger)">*</span>' : ''}</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase;">${q.type.replace('_', ' ')}${q.type === 'dropdown' ? ' · ' + (q.options || []).join(', ') : ''}</div>
+            </div>
+            <button class="icon-btn" onclick="removeQuestionFromEditingForm(${idx})">🗑️</button>
+          </div>
+        `;
+      });
+    }
+
+    function toggleDropdownOptionsInput() {
+      const type = document.getElementById('newQuestionType').value;
+      document.getElementById('newQuestionOptionsGroup').style.display = type === 'dropdown' ? 'flex' : 'none';
+    }
+
+    async function saveEditingFormQuestions() {
+      const res = await fetch(`/api/appeals/forms/${editingAppealForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questions: editingAppealForm.questions })
+      });
+      const data = await res.json();
+      if (data.success) editingAppealForm = data.form;
+      return data;
+    }
+
+    async function addQuestionToEditingForm() {
+      const label = document.getElementById('newQuestionLabel').value.trim();
+      if (!label) return showToast('Please enter a question!', 'error');
+      const type = document.getElementById('newQuestionType').value;
+      const required = document.getElementById('newQuestionRequired').value === 'true';
+      const optionsRaw = document.getElementById('newQuestionOptions').value;
+      const options = type === 'dropdown' ? optionsRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
+      editingAppealForm.questions.push({
+        id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type, label, required, options
+      });
+
+      const result = await saveEditingFormQuestions();
+      if (result.success) {
+        renderEditingQuestions();
+        document.getElementById('newQuestionLabel').value = '';
+        document.getElementById('newQuestionOptions').value = '';
+        showToast('Question added!', 'success');
+      } else {
+        editingAppealForm.questions.pop();
+        showToast(result.error, 'error');
+      }
+    }
+
+    async function removeQuestionFromEditingForm(idx) {
+      editingAppealForm.questions.splice(idx, 1);
+      await saveEditingFormQuestions();
+      renderEditingQuestions();
+    }
+
+    async function togglePublishEditingForm() {
+      const newStatus = editingAppealForm.status === 'published' ? 'draft' : 'published';
+      const res = await fetch(`/api/appeals/forms/${editingAppealForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        editingAppealForm = data.form;
+        const btn = document.getElementById('publishToggleBtn');
+        btn.innerText = editingAppealForm.status === 'published' ? 'Unpublish' : 'Publish';
+        btn.style.background = editingAppealForm.status === 'published' ? 'var(--text-muted)' : 'var(--accent)';
+        showToast(editingAppealForm.status === 'published' ? 'Published! Shareable URL is live.' : 'Unpublished.', 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    function copyAppealUrl(url) {
+      navigator.clipboard.writeText(url)
+        .then(() => showToast('URL copied!', 'success'))
+        .catch(() => showToast('Could not copy — copy it manually.', 'error'));
+    }
+
+    async function deleteAppealForm(id, title) {
+      if (!confirm(`Delete "${title}"? This also deletes all its responses.`)) return;
+      const res = await fetch(`/api/appeals/forms/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Form deleted.', 'success');
+        loadAppeals();
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function openAppealResponsesModal(id) {
+      const res = await fetch(`/api/appeals/forms/${id}/responses`);
+      const data = await res.json();
+      if (!data.form) return showToast('Could not load responses.', 'error');
+
+      document.getElementById('responsesFormTitle').innerText = `Responses — ${data.form.title}`;
+      const list = document.getElementById('appealResponsesList');
+
+      if (data.responses.length === 0) {
+        list.innerHTML = '<div class="empty-state">No responses yet.</div>';
+      } else {
+        list.innerHTML = '';
+        data.responses.forEach(r => {
+          const answersHtml = data.form.questions.map(q => `
+            <div style="margin-bottom:0.6rem;">
+              <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);">${q.label}</div>
+              <div style="font-size:0.88rem;">${r.answers[q.id] || '<span style="color:var(--text-muted)">(no answer)</span>'}</div>
+            </div>
+          `).join('');
+          list.innerHTML += `
+            <div class="activity-item">
+              <div style="width:100%;">
+                ${answersHtml}
+                <div class="activity-meta">${new Date(r.submittedAt).toLocaleString()}</div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('appealResponsesModal').classList.add('show');
+    }
+    function closeAppealResponsesModal() { document.getElementById('appealResponsesModal').classList.remove('show'); }
+
+    // ============================================================
+    // LOA REQUESTS
+    // ============================================================
+
+    async function loadLoaRequests() {
+      try {
+        const res = await fetch('/api/loa/requests');
+        const data = await res.json();
+        renderLoaRequests(data.requests || []);
+      } catch (e) {
+        showToast('Failed to load LOA requests.', 'error');
+      }
+    }
+
+    function renderLoaRequests(requests) {
+      const pending = requests.filter(r => r.status === 'pending');
+      const history = requests.filter(r => r.status !== 'pending');
+
+      document.getElementById('loaPendingCount').innerText = pending.length ? `(${pending.length})` : '';
+
+      const pendingList = document.getElementById('loaPendingList');
+      if (pending.length === 0) {
+        pendingList.innerHTML = '<div class="card"><div class="empty-state">No pending requests.</div></div>';
+      } else {
+        pendingList.innerHTML = '';
+        pending.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.style.marginBottom = '1rem';
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:700; font-size:0.95rem;">${r.userTag}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">${r.startDate} → ${r.endDate}</div>
+              </div>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="declineLoaRequest('${r.id}', this)">Decline</button>
+                <button class="action-btn" style="width:auto; background:var(--success);" onclick="approveLoaRequest('${r.id}', this)">Accept</button>
+              </div>
+            </div>
+            <div style="margin-top:0.9rem; background:var(--soft-surface); border:1px solid var(--card-border); border-radius:10px; padding:0.8rem;">
+              <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.3rem;">Reason</div>
+              <div style="font-size:0.87rem;">${r.reason}</div>
+              ${r.reasonSummary ? `
+                <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-top:0.7rem; margin-bottom:0.3rem;">✨ AI Summary</div>
+                <div style="font-size:0.87rem; font-style:italic;">${r.reasonSummary}</div>
+              ` : ''}
+            </div>
+          `;
+          pendingList.appendChild(card);
+        });
+      }
+
+      const historyList = document.getElementById('loaHistoryList');
+      if (history.length === 0) {
+        historyList.innerHTML = '<div class="card"><div class="empty-state">No reviewed requests yet.</div></div>';
+      } else {
+        const card = document.createElement('div');
+        card.className = 'card';
+        history.sort((a, b) => (b.reviewedAt || 0) - (a.reviewedAt || 0));
+        history.forEach(r => {
+          const statusColors = { approved: 'success', declined: 'danger', completed: 'text-muted' };
+          const statusLabel = { approved: 'Approved', declined: 'Declined', completed: 'Completed' };
+          card.innerHTML += `
+            <div class="activity-item">
+              <div>
+                <span class="status-pill ${r.status === 'declined' ? 'revoked' : ''}" style="${r.status === 'declined' ? 'background:var(--danger-soft); color:var(--danger);' : ''}">${statusLabel[r.status] || r.status}</span>
+                <span class="activity-target">${r.userTag}</span>
+                <div class="activity-reason">${r.startDate} → ${r.endDate}</div>
+                ${r.reviewNote ? `<div class="activity-meta" style="margin-top:0.3rem;">"${r.reviewNote}"</div>` : ''}
+              </div>
+            </div>
+          `;
+        });
+        historyList.innerHTML = '';
+        historyList.appendChild(card);
+      }
+    }
+
+    async function approveLoaRequest(id, btn) {
+      btn.disabled = true;
+      btn.innerText = '...';
+      const res = await fetch(`/api/loa/requests/${id}/approve`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadLoaRequests();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
+        btn.innerText = 'Accept';
+      }
+    }
+
+    async function declineLoaRequest(id, btn) {
+      btn.disabled = true;
+      btn.innerText = '...';
+      const res = await fetch(`/api/loa/requests/${id}/decline`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadLoaRequests();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
+        btn.innerText = 'Decline';
+      }
+    }
+
+    async function saveEconomySettings() {
+      const res = await fetch('/api/economy/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: document.getElementById('rp_enableEconomy').checked,
+          currencyName: document.getElementById('rp_currencyName').value,
+          startingBalance: document.getElementById('rp_startingBalance').value,
+          dailyReward: document.getElementById('rp_dailyReward').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function saveGifResponder() {
+      const res = await fetch('/api/gif-responder/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: document.getElementById('gr_enabled').checked,
+          targetUserId: document.getElementById('gr_targetUserId').value,
+          gifUrl: document.getElementById('gr_gifUrl').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function saveLoggingSettings() {
+      const eventKeys = ['messageDelete', 'messageEdit', 'memberJoin', 'memberLeave', 'memberBan', 'memberUnban', 'roleCreate', 'roleDelete', 'channelCreate', 'channelDelete'];
+      const events = {};
+      eventKeys.forEach(key => {
+        const el = document.getElementById(`log_ev_${key}`);
+        if (el) events[key] = el.checked;
+      });
+
+      const res = await fetch('/api/logging/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: document.getElementById('log_enabled').checked,
+          channelId: document.getElementById('log_channelSelect').value,
+          events
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        renderDashboard(data.payload);
+        showToast(data.message, 'success');
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
     async function saveProfile() {
       const res = await fetch('/api/bot/profile', {
         method: 'POST',
@@ -1074,14 +2175,19 @@
       if (activeChatFilter !== 'all' && msg.channelId !== activeChatFilter) return;
 
       const box = document.getElementById('chatbox');
+      if (!box.querySelector('.chat-msg')) box.innerHTML = ''; // clear "Loading..." or "No messages" placeholder before adding a real one
+
       const msgDiv = document.createElement('div');
       msgDiv.className = 'chat-msg';
+      msgDiv.dataset.messageId = msg.id;
+      if (msg.flagged) msgDiv.style.cssText = 'border-left: 3px solid var(--danger); background: var(--danger-soft);';
       msgDiv.onclick = () => openUserModal(msg.authorId, msg.author);
 
       msgDiv.innerHTML = `
         <div>
           <span class="chat-user">${msg.author}</span>
           <span class="chat-channel">#${msg.channelName || 'channel'}</span>
+          ${msg.flagged ? `<span class="status-pill" style="background:var(--danger-soft); color:var(--danger);">⚠️ Flagged: ${msg.flagReason || 'AutoMod'}</span>` : ''}
           <div class="chat-text">${msg.content}</div>
         </div>
         <button class="del-btn" onclick="event.stopPropagation(); deleteMessage('${msg.channelId}', '${msg.id}', this)">Delete</button>
@@ -1246,6 +2352,8 @@
 
     function appendRobloxChatMessage(msg) {
       const box = document.getElementById('rbxChatbox');
+      if (!box.querySelector('.chat-msg')) box.innerHTML = '';
+
       const msgDiv = document.createElement('div');
       msgDiv.className = 'chat-msg';
       msgDiv.style.cursor = 'default';
@@ -1273,6 +2381,44 @@
       appendChatMessage(msg);
     });
 
+    // Bot connect/disconnect — updates the header badge and Live Chat banner live,
+    // without needing a page refresh.
+    socket.on('botStatus', (data) => {
+      applyBotStatus(data.online, data.tag);
+    });
+
+    // When AutoMod deletes a message from Discord, mark it in the Live Chat
+    // feed instead of yanking it out — keeps the flagged context visible.
+    socket.on('discordMessageDeleted', ({ id, reason }) => {
+      const el = document.querySelector(`.chat-msg[data-message-id="${id}"]`);
+      if (!el) return;
+      const textEl = el.querySelector('.chat-text');
+      if (textEl) textEl.style.cssText = 'text-decoration: line-through; color: var(--text-muted);';
+      const delBtn = el.querySelector('.del-btn');
+      if (delBtn) delBtn.remove();
+      const userEl = el.querySelector('.chat-user');
+      if (userEl) userEl.insertAdjacentHTML('afterend', ` <span class="status-pill revoked">Removed${reason ? ' · ' + reason : ''}</span>`);
+    });
+
+    // Safety net: clicking the dark overlay outside any modal closes it, even
+    // if a specific close button is ever missing, mis-styled, or broken.
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.remove('show');
+      });
+    });
+
+    async function clearChatLog() {
+      const res = await fetch('/api/chatlogs/clear', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        selectChatFilter(activeChatFilter, document.getElementById('selectedChatLabel').innerText);
+      } else {
+        showToast('Failed to clear log.', 'error');
+      }
+    }
+
     // Real-Time Socket Audit Log Listener
     socket.on('auditLogUpdate', (log) => {
       const auditBody = document.getElementById('auditTableBody');
@@ -1284,11 +2430,206 @@
       }
 
       const row = document.createElement('tr');
-      row.innerHTML = `<td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td>`;
+      row.innerHTML = `<td>${log.timestamp}</td><td><strong>${log.action}</strong></td><td>${log.details}</td></tr>`;
       auditBody.insertBefore(row, auditBody.firstChild);
     });
 
-    loadDashboard();
+    // ============================================================
+    // MODERATION CENTER — unified Discord + Roblox actions
+    // ============================================================
+
+    let mc_platformFilter = 'all';
+    let ca_selectedType = 'ban';
+
+    function setModPlatformFilter(platform, btn) {
+      mc_platformFilter = platform;
+      document.querySelectorAll('.pill-toggle .pill-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadModCenter();
+    }
+
+    function timeAgo(ts) {
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    async function loadModCenter() {
+      const search = document.getElementById('mc_search').value || '';
+      try {
+        const res = await fetch(`/api/moderation/overview?platform=${mc_platformFilter}&search=${encodeURIComponent(search)}`);
+        const data = await res.json();
+        renderModCenter(data);
+      } catch (e) {
+        showToast('Failed to load moderation data!', 'error');
+      }
+    }
+
+    const MOD_TYPE_ICONS = { ban: '🚫', mute: '🔇', warn: '⚠️', kick: '👢' };
+    const MOD_PLATFORM_ICONS = { discord: '💬', roblox: '🎮' };
+
+    function renderModCenter(data) {
+      document.getElementById('mc_statBans').innerText = data.stats.bans;
+      document.getElementById('mc_statMutes').innerText = data.stats.mutes;
+      document.getElementById('mc_statWarnings').innerText = data.stats.warnings;
+      document.getElementById('mc_statKicks').innerText = data.stats.kicks;
+
+      const list = document.getElementById('mc_activityList');
+      document.getElementById('mc_activityCount').innerText = data.actions.length ? `(${data.actions.length})` : '';
+
+      if (data.actions.length === 0) {
+        list.innerHTML = '<div class="empty-state">No moderation actions recorded yet.</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      data.actions.forEach(a => {
+        const item = document.createElement('div');
+        item.className = 'activity-item';
+        item.innerHTML = `
+          <div class="activity-row">
+            <div class="activity-icon-circle">${MOD_TYPE_ICONS[a.type] || '🛡️'}</div>
+            <div>
+              <span class="activity-badge ${a.type}">${a.type}</span>
+              <span class="activity-target">${a.targetLabel}</span>
+              <span class="status-pill ${a.status === 'revoked' ? 'revoked' : ''}">${a.status}</span>
+              <div class="activity-reason">${a.reason || 'No reason given'}</div>
+              <div class="activity-meta">
+                <span class="platform-chip">${MOD_PLATFORM_ICONS[a.platform] || ''} ${a.platform}</span>
+                <span>${a.issuedBy || 'Unknown'}</span>
+                <span>·</span>
+                <span>${timeAgo(a.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+          ${a.status === 'active' && a.type !== 'kick' ? `<button class="icon-btn" title="Revoke" onclick="revokeModerationAction('${a.id}', this)">🗑️</button>` : ''}
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function revokeModerationAction(id, btn) {
+      btn.disabled = true;
+      btn.innerText = '…';
+      const res = await fetch(`/api/moderation/actions/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Action revoked!', 'success');
+        loadModCenter();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
+        btn.innerText = '🗑️';
+      }
+    }
+
+    function openModSetupModal() { document.getElementById('modSetupModal').classList.add('show'); }
+    function closeModSetupModal() { document.getElementById('modSetupModal').classList.remove('show'); }
+
+    function openCreateActionModal() {
+      document.getElementById('createActionModal').classList.add('show');
+      updateCreateActionFields();
+    }
+    function closeCreateActionModal() {
+      document.getElementById('createActionModal').classList.remove('show');
+    }
+
+    function selectActionType(type, el) {
+      ca_selectedType = type;
+      document.querySelectorAll('.action-type-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+
+      const submitBtn = document.getElementById('ca_submitBtn');
+      const styles = {
+        ban: { color: 'var(--danger)', label: 'Ban User' },
+        mute: { color: 'var(--warning)', label: 'Mute User' },
+        warn: { color: 'var(--warning)', label: 'Warn User' },
+        kick: { color: '#3b82f6', label: 'Kick User' }
+      };
+      submitBtn.style.background = styles[type].color;
+      submitBtn.innerText = styles[type].label;
+    }
+
+    function updateCreateActionFields() {
+      const platform = document.getElementById('ca_platform').value;
+      document.getElementById('ca_discordIdGroup').style.display = platform === 'discord' ? 'flex' : 'none';
+      document.getElementById('ca_usernameGroup').style.display = platform === 'roblox' ? 'flex' : 'none';
+    }
+
+    async function submitModerationAction() {
+      const platform = document.getElementById('ca_platform').value;
+      const target = platform === 'discord'
+        ? document.getElementById('ca_discordId').value
+        : document.getElementById('ca_username').value;
+
+      if (!target) return showToast('Please enter a target user!', 'error');
+
+      const reason = document.getElementById('ca_reason').value || 'No reason provided.';
+      const duration = document.getElementById('ca_duration').value;
+      const evidence = document.getElementById('ca_evidence').value;
+
+      const res = await fetch('/api/moderation/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: ca_selectedType, platform, target, reason, duration, evidence })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        closeCreateActionModal();
+        document.getElementById('ca_discordId').value = '';
+        document.getElementById('ca_username').value = '';
+        document.getElementById('ca_reason').value = '';
+        document.getElementById('ca_duration').value = '';
+        document.getElementById('ca_evidence').value = '';
+        loadModCenter();
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    // ============================================================
+    // DASHBOARD HOME — landing page stats
+    // ============================================================
+
+    async function loadDashboardHome() {
+      try {
+        const [overviewRes, rosterRes] = await Promise.all([
+          fetch('/api/moderation/overview?platform=all&search='),
+          fetch('/api/roblox/player-roster')
+        ]);
+        const overview = await overviewRes.json();
+        const roster = await rosterRes.json();
+
+        document.getElementById('dash_statApplications').innerText = '0'; // Applications page isn't wired up yet
+        document.getElementById('dash_statAppeals').innerText = '0'; // Appeals page isn't wired up yet
+        document.getElementById('dash_statStaff').innerText = '0'; // No staff-role detection wired up yet
+        document.getElementById('dash_statActiveMod').innerText = overview.stats.bans + overview.stats.mutes + overview.stats.warnings;
+
+        document.getElementById('dash_gameId').innerText = roster.lastUpdated
+          ? `${roster.players.length} player(s) online · updated ${roster.lastUpdated}`
+          : 'Waiting for Roblox roster data...';
+      } catch (e) {
+        // Non-fatal — dashboard stats are supplementary.
+      }
+    }
+
+    (async () => {
+      try {
+        await loadDashboard();
+        const initialTab = pathToTabId(window.location.pathname);
+        if (initialTab === 'dashboard') {
+          await loadDashboardHome();
+        } else {
+          activateTab(initialTab); // handles its own data loading for non-dashboard tabs
+        }
+      } catch (e) {
+        console.error('[Apex] Dashboard failed to initialize:', e);
+        showToast('Dashboard failed to load — check the browser console (F12) for details.', 'error');
+      }
+    })();
   </script>
 </body>
 </html>
