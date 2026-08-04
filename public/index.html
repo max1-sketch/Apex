@@ -1141,14 +1141,51 @@
 
     <!-- TAB 11: TICKETS -->
     <div id="tab-tickets" class="tab-content">
-      <div class="card">
-        <h2>🎟️ Support Ticket Queue</h2>
-        <table>
-          <thead><tr><th>Ticket ID</th><th>User</th><th>Subject</th><th>Status</th></tr></thead>
-          <tbody id="ticketsBody">
-            <tr><td colspan="4" class="empty-state">No active support tickets found.</td></tr>
-          </tbody>
-        </table>
+      <div class="modcenter-header">
+        <div>
+          <h1>Tickets</h1>
+          <p>Build panels with buttons that let members open private support tickets</p>
+        </div>
+        <button class="action-btn" style="width:auto;" onclick="openCreatePanelModal()">＋ Create Panel</button>
+      </div>
+
+      <div class="section-label">Panels</div>
+      <div id="ticketPanelsList" style="margin-bottom:1.75rem;">
+        <div class="card"><div class="empty-state">Loading panels...</div></div>
+      </div>
+
+      <div class="section-label">Active Tickets</div>
+      <div id="activeTicketsList">
+        <div class="card"><div class="empty-state">Loading tickets...</div></div>
+      </div>
+    </div>
+
+    <!-- CREATE TICKET PANEL MODAL -->
+    <div class="modal-overlay" id="createPanelModal">
+      <div class="modal" style="max-width:480px; max-height:85vh; overflow-y:auto;">
+        <div class="modal-header">
+          <div><h3 style="font-size:1.1rem; color:var(--text);">Create Ticket Panel</h3></div>
+          <button onclick="closeCreatePanelModal()" style="background:transparent; border:none; color:var(--text); font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+        <div class="input-group"><label>Title</label><input type="text" id="tp_title" placeholder="e.g. Support Tickets"></div>
+        <div class="input-group"><label>Description</label><textarea id="tp_description" rows="2" placeholder="Click below to open a ticket with staff."></textarea></div>
+        <div class="input-group"><label>Channel to Post In</label><select id="tp_channelSelect"></select></div>
+        <div class="input-group"><label>Support Role (can see tickets)</label><select id="tp_supportRoleSelect"><option value="">-- None --</option></select></div>
+        <div class="modal-grid">
+          <div class="input-group" style="margin-bottom:0;"><label>Button Label</label><input type="text" id="tp_buttonLabel" placeholder="Open Ticket"></div>
+          <div class="input-group" style="margin-bottom:0;"><label>Button Emoji</label><input type="text" id="tp_buttonEmoji" placeholder="🎫"></div>
+        </div>
+        <div class="input-group" style="margin-top:0.9rem;">
+          <label>Button Style</label>
+          <select id="tp_buttonStyle">
+            <option value="Primary">Blue (Primary)</option>
+            <option value="Secondary">Gray (Secondary)</option>
+            <option value="Success">Green (Success)</option>
+            <option value="Danger">Red (Danger)</option>
+          </select>
+        </div>
+        <div class="input-group"><label>Welcome Message (in the ticket channel)</label><textarea id="tp_welcomeMessage" rows="2" placeholder="Thanks for reaching out, {user}! Staff will be with you shortly."></textarea></div>
+        <button class="action-btn" onclick="createTicketPanel()">Create Panel</button>
       </div>
     </div>
 
@@ -1277,6 +1314,9 @@
       }
       if (name === 'loa') {
         loadLoaRequests();
+      }
+      if (name === 'tickets') {
+        loadTickets();
       }
     }
 
@@ -1987,6 +2027,169 @@
       document.getElementById('appealResponsesModal').classList.add('show');
     }
     function closeAppealResponsesModal() { document.getElementById('appealResponsesModal').classList.remove('show'); }
+
+    // ============================================================
+    // TICKETS — panel builder + active tickets
+    // ============================================================
+
+    async function loadTickets() {
+      try {
+        const [panelsRes, ticketsRes] = await Promise.all([
+          fetch('/api/tickets/panels'),
+          fetch('/api/tickets')
+        ]);
+        const panelsData = await panelsRes.json();
+        const ticketsData = await ticketsRes.json();
+        renderTicketPanels(panelsData.panels || []);
+        renderActiveTickets(ticketsData.tickets || []);
+      } catch (e) {
+        showToast('Failed to load tickets.', 'error');
+      }
+    }
+
+    function renderTicketPanels(panels) {
+      const list = document.getElementById('ticketPanelsList');
+      if (panels.length === 0) {
+        list.innerHTML = '<div class="card"><div class="empty-state">No ticket panels yet — create one to get started.</div></div>';
+        return;
+      }
+      list.innerHTML = '';
+      panels.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '1rem';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <span style="font-weight:700; font-size:1rem;">${p.buttonEmoji || '🎫'} ${p.title}</span>
+                ${p.sentMessageId ? '<span class="status-pill">Live</span>' : '<span class="status-pill revoked">Not sent yet</span>'}
+                ${p.openCount > 0 ? `<span class="status-pill" style="background:var(--warning-soft); color:var(--warning);">${p.openCount} open</span>` : ''}
+              </div>
+              <div style="font-size:0.83rem; color:var(--text-muted); margin-top:0.3rem;">${p.description || ''}</div>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-shrink:0;">
+              <button class="revoke-btn" onclick="sendTicketPanel('${p.id}', this)">${p.sentMessageId ? 'Re-send' : 'Send'} Panel</button>
+              <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="deleteTicketPanel('${p.id}', '${p.title.replace(/'/g, "\\'")}')">Delete</button>
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function renderActiveTickets(allTickets) {
+      const open = allTickets.filter(t => t.status === 'open');
+      const list = document.getElementById('activeTicketsList');
+      if (open.length === 0) {
+        list.innerHTML = '<div class="card"><div class="empty-state">No open tickets right now.</div></div>';
+        return;
+      }
+      const card = document.createElement('div');
+      card.className = 'card';
+      open.forEach(t => {
+        card.innerHTML += `
+          <div class="activity-item">
+            <div>
+              <span class="activity-target">${t.userTag}</span>
+              <div class="activity-meta">
+                <span>Channel ID: ${t.channelId}</span>
+                <span>·</span>
+                <span>${timeAgo(t.createdAt)}</span>
+              </div>
+            </div>
+            <button class="revoke-btn" style="color:var(--danger); border-color:rgba(248,113,113,0.3);" onclick="closeTicketFromDashboard('${t.id}', this)">Close</button>
+          </div>
+        `;
+      });
+      list.innerHTML = '';
+      list.appendChild(card);
+    }
+
+    function openCreatePanelModal() {
+      const channelSelect = document.getElementById('tp_channelSelect');
+      channelSelect.innerHTML = '';
+      (globalData.channelsList || []).forEach(c => {
+        channelSelect.innerHTML += `<option value="${c.id}">#${c.name}</option>`;
+      });
+      const roleSelect = document.getElementById('tp_supportRoleSelect');
+      roleSelect.innerHTML = '<option value="">-- None --</option>';
+      (globalData.rolesList || []).forEach(r => {
+        roleSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+      });
+      document.getElementById('createPanelModal').classList.add('show');
+    }
+    function closeCreatePanelModal() { document.getElementById('createPanelModal').classList.remove('show'); }
+
+    async function createTicketPanel() {
+      const title = document.getElementById('tp_title').value.trim();
+      if (!title) return showToast('Please enter a title!', 'error');
+
+      const res = await fetch('/api/tickets/panels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: document.getElementById('tp_description').value,
+          channelId: document.getElementById('tp_channelSelect').value,
+          supportRoleId: document.getElementById('tp_supportRoleSelect').value,
+          buttonLabel: document.getElementById('tp_buttonLabel').value,
+          buttonEmoji: document.getElementById('tp_buttonEmoji').value,
+          buttonStyle: document.getElementById('tp_buttonStyle').value,
+          welcomeMessage: document.getElementById('tp_welcomeMessage').value
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeCreatePanelModal();
+        showToast('Panel created! Click "Send Panel" to post it.', 'success');
+        loadTickets();
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function sendTicketPanel(id, btn) {
+      btn.disabled = true;
+      btn.innerText = '...';
+      const res = await fetch(`/api/tickets/panels/${id}/send`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadTickets();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
+        btn.innerText = 'Send Panel';
+      }
+    }
+
+    async function deleteTicketPanel(id, title) {
+      if (!confirm(`Delete "${title}"? This won't close existing tickets.`)) return;
+      const res = await fetch(`/api/tickets/panels/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Panel deleted.', 'success');
+        loadTickets();
+      } else {
+        showToast(data.error, 'error');
+      }
+    }
+
+    async function closeTicketFromDashboard(id, btn) {
+      btn.disabled = true;
+      btn.innerText = '...';
+      const res = await fetch(`/api/tickets/${id}/close`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, 'success');
+        loadTickets();
+      } else {
+        showToast(data.error, 'error');
+        btn.disabled = false;
+        btn.innerText = 'Close';
+      }
+    }
 
     // ============================================================
     // LOA REQUESTS
