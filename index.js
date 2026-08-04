@@ -8,6 +8,10 @@ const {
   ActivityType,
   REST,
   Routes,
+  ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require('discord.js');
 const express = require('express');
 const http = require('http');
@@ -23,6 +27,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 // own JS reads the slug out of the URL and fetches the right form.
 app.get('/appeal/:slug', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'appeal.html'));
+});
+
+// Public per-case appeal page — one per ban/mute/warn action. The page's
+// own JS reads the action id out of the URL.
+app.get('/case-appeal/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'case-appeal.html'));
 });
 
 // Direct-navigation dashboard tab URLs (e.g. /livechat, /moderation) — all
@@ -143,6 +153,9 @@ let botState = {
     joinMessage: 'Welcome {user} to {server}! We now have {membercount} members.',
     leaveEnabled: true,
     leaveMessage: '{username} has left {server}.'
+  },
+  appeals: {
+    banAppealFormId: null // which published appeal form (from appealForms) gets linked in ban DMs
   }
 };
 
@@ -222,9 +235,49 @@ const MANUAL_ROAST_LINES = [
 // "Clear Log" button on the dashboard (or deleting the file by hand).
 // ===================================================================
 const DATA_DIR = path.join(__dirname, 'data');
-const CHAT_LOG_FILE = path.join(DATA_DIR, 'chatlog.json');
-
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// ===================================================================
+// BOT SETTINGS PERSISTENCE — botState (AutoMod rules, bypasses, economy
+// config, logging, welcome, GIF responder, everything configured from the
+// dashboard) now survives restarts/redeploys instead of resetting to
+// defaults every time. Deep-merges the saved file onto the hardcoded
+// defaults above, so a setting added in a future update that isn't in an
+// old save file still gets a sane default instead of being undefined.
+// ===================================================================
+const BOTSTATE_FILE = path.join(DATA_DIR, 'botstate.json');
+
+function deepMergeBotState(defaults, saved) {
+  if (Array.isArray(defaults)) return Array.isArray(saved) ? saved : defaults;
+  if (defaults && typeof defaults === 'object' && saved && typeof saved === 'object') {
+    const result = { ...defaults };
+    for (const key of Object.keys(saved)) {
+      result[key] = deepMergeBotState(defaults[key], saved[key]);
+    }
+    return result;
+  }
+  return saved !== undefined ? saved : defaults;
+}
+
+try {
+  if (fs.existsSync(BOTSTATE_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(BOTSTATE_FILE, 'utf8'));
+    botState = deepMergeBotState(botState, saved);
+    console.log('[BOTSTATE] Loaded saved settings from disk.');
+  }
+} catch (err) {
+  console.error('[BOTSTATE] Failed to load saved settings, using defaults:', err.message);
+}
+
+function saveBotState() {
+  try {
+    fs.writeFileSync(BOTSTATE_FILE, JSON.stringify(botState));
+  } catch (err) {
+    console.error('[BOTSTATE] Failed to save settings to disk:', err.message);
+  }
+}
+
+const CHAT_LOG_FILE = path.join(DATA_DIR, 'chatlog.json');
 
 let chatHistory = [];
 try {
@@ -282,6 +335,23 @@ function slugify(title) {
     .slice(0, 40) || 'appeal';
   const suffix = Math.random().toString(36).slice(2, 7);
   return `${base}-${suffix}`;
+}
+
+// Resolves the ban-appeal link to include in ban DMs, if one is configured
+// in the Appeals tab and that form is actually published. baseUrl comes
+// from the incoming request when triggered via the dashboard; for
+// Discord-slash-command-triggered bans there's no request to read a host
+// from, so it falls back to the PUBLIC_URL env var (set this to your
+// Render URL or custom domain, e.g. https://apexroleplay.com).
+function getBanAppealUrl(baseUrl) {
+  const formId = botState.appeals.banAppealFormId;
+  if (!formId) return null;
+  const form = appealForms.find(f => f.id === formId);
+  if (!form || form.status !== 'published') return null;
+
+  const base = baseUrl || process.env.PUBLIC_URL;
+  if (!base) return null;
+  return `${base.replace(/\/$/, '')}/appeal/${form.slug}`;
 }
 
 // ===================================================================
@@ -600,19 +670,88 @@ function broadcastBotStatus() {
 // ===================================================================
 // UNIFIED MODERATION CENTER — tracks bans/mutes/warnings/kicks across
 // both Discord and Roblox in one list, powering the "Moderation" tab.
+// Each Discord ban/mute/warn also gets a one-shot appeal case: the user
+// gets a link in their DM, can submit exactly one appeal for that
+// specific action, and staff accept/reject it from the dashboard.
 // ===================================================================
+const MODERATION_ACTIONS_FILE = path.join(DATA_DIR, 'moderation-actions.json');
+
 let moderationActions = [];
+try {
+  if (fs.existsSync(MODERATION_ACTIONS_FILE)) {
+    moderationActions = JSON.parse(fs.readFileSync(MODERATION_ACTIONS_FILE, 'utf8'));
+    console.log(`[MODERATION] Loaded ${moderationActions.length} action(s) from disk.`);
+  }
+} catch (err) {
+  console.error('[MODERATION] Failed to load saved moderation actions, starting fresh:', err.message);
+}
+
+function saveModerationActions() {
+  try {
+    fs.writeFileSync(MODERATION_ACTIONS_FILE, JSON.stringify(moderationActions));
+  } catch (err) {
+    console.error('[MODERATION] Failed to save moderation actions to disk:', err.message);
+  }
+}
 
 function addModerationAction(record) {
   const action = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: record.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'active',
     timestamp: Date.now(),
+    appealStatus: 'none', // 'none' | 'pending' | 'accepted' | 'rejected'
+    appealReason: null,
+    appealSubmittedAt: null,
+    appealResolvedAt: null,
     ...record
   };
   moderationActions.unshift(action);
   if (moderationActions.length > 500) moderationActions.pop();
+  saveModerationActions();
   return action;
+}
+
+// Builds the link included in ban/mute/warn DMs. baseUrl comes from the
+// request when triggered via the dashboard; for slash-command-triggered
+// actions there's no request to read a host from, so it falls back to
+// PUBLIC_URL (same env var used for the general ban-appeal-form link).
+function getCaseAppealUrl(actionId, baseUrl) {
+  const base = baseUrl || process.env.PUBLIC_URL;
+  if (!base) return null;
+  return `${base.replace(/\/$/, '')}/case-appeal/${actionId}`;
+}
+
+// ===================================================================
+// TICKET SYSTEM — staff build panels on the dashboard (title, description,
+// button style, support role, welcome message), send them to a channel,
+// and members click the button to open a private ticket channel. One open
+// ticket per panel per user at a time. Panels + tickets persist to disk.
+// ===================================================================
+const TICKETS_FILE = path.join(DATA_DIR, 'tickets.json');
+
+let ticketPanels = [];
+let tickets = [];
+try {
+  if (fs.existsSync(TICKETS_FILE)) {
+    const loaded = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
+    ticketPanels = loaded.panels || [];
+    tickets = loaded.tickets || [];
+    console.log(`[TICKETS] Loaded ${ticketPanels.length} panel(s) and ${tickets.length} ticket(s) from disk.`);
+  }
+} catch (err) {
+  console.error('[TICKETS] Failed to load saved ticket data, starting fresh:', err.message);
+}
+
+function saveTickets() {
+  try {
+    fs.writeFileSync(TICKETS_FILE, JSON.stringify({ panels: ticketPanels, tickets }));
+  } catch (err) {
+    console.error('[TICKETS] Failed to save ticket data to disk:', err.message);
+  }
+}
+
+function fillTicketPlaceholders(template, userId) {
+  return (template || '').replace(/{user}/g, `<@${userId}>`);
 }
 
 // Parses "5m", "1h", "7d" etc into milliseconds. Returns null for blank/invalid (permanent).
@@ -672,8 +811,12 @@ function inspectMessage(content) {
     return { violated: true, reason: 'Discord Invite Link' };
   }
 
-  if (botState.autoMod.blockLinks && /https?:\/\/[^\s]+/i.test(content) && !content.includes('tenor.com')) {
-    return { violated: true, reason: 'External Web Link' };
+  if (botState.autoMod.blockLinks && /https?:\/\/[^\s]+/i.test(content)) {
+    const isGifLink = /\.gif(\?\S*)?(\s|$)/i.test(content)
+      || /(tenor\.com|giphy\.com|klipy\.com|media\.discordapp\.net|cdn\.discordapp\.com)/i.test(content);
+    if (!isGifLink) {
+      return { violated: true, reason: 'External Web Link' };
+    }
   }
 
   return { violated: false };
@@ -773,7 +916,95 @@ client.on('error', (err) => {
   broadcastBotStatus();
 });
 
+async function handleTicketButton(interaction) {
+  const customId = interaction.customId;
+
+  if (customId.startsWith('ticket_open_')) {
+    const panelId = customId.slice('ticket_open_'.length);
+    const panel = ticketPanels.find(p => p.id === panelId);
+    if (!panel) return interaction.reply({ content: '❌ This ticket panel no longer exists.', ephemeral: true });
+
+    const existing = tickets.find(t => t.panelId === panelId && t.userId === interaction.user.id && t.status === 'open');
+    if (existing) {
+      return interaction.reply({ content: `❌ You already have an open ticket for this: <#${existing.channelId}>`, ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const guild = interaction.guild;
+    const overwrites = [
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+      { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels] }
+    ];
+    if (panel.supportRoleId) {
+      overwrites.push({ id: panel.supportRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+    }
+
+    let channel;
+    try {
+      channel = await guild.channels.create({
+        name: `ticket-${interaction.user.username}`.slice(0, 90).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        type: ChannelType.GuildText,
+        permissionOverwrites: overwrites,
+        topic: `Ticket for ${interaction.user.tag} — panel: ${panel.title}`
+      });
+    } catch (err) {
+      return interaction.editReply({ content: `❌ Failed to create ticket channel: ${err.message}` });
+    }
+
+    const ticketId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    tickets.unshift({
+      id: ticketId, panelId, userId: interaction.user.id, userTag: interaction.user.tag,
+      channelId: channel.id, status: 'open', claimedBy: null, createdAt: Date.now(), closedAt: null, closedBy: null
+    });
+    saveTickets();
+    addAuditLog('TICKET_OPENED', `${interaction.user.tag} opened a ticket via panel "${panel.title}"`);
+
+    const closeRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`ticket_close_${ticketId}`).setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    );
+    const welcomeEmbed = new EmbedBuilder()
+      .setTitle(panel.title)
+      .setDescription(fillTicketPlaceholders(panel.welcomeMessage, interaction.user.id) || `Thanks for reaching out, <@${interaction.user.id}>! Staff will be with you shortly.`)
+      .setColor('#3b82f6');
+
+    await channel.send({
+      content: panel.supportRoleId ? `<@&${panel.supportRoleId}>` : undefined,
+      embeds: [welcomeEmbed],
+      components: [closeRow]
+    });
+    await interaction.editReply({ content: `✅ Ticket created: ${channel}` });
+  } else if (customId.startsWith('ticket_close_')) {
+    const ticketId = customId.slice('ticket_close_'.length);
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return interaction.reply({ content: '❌ Ticket not found.', ephemeral: true });
+    if (ticket.status === 'closed') return interaction.reply({ content: '❌ This ticket is already closed.', ephemeral: true });
+
+    ticket.status = 'closed';
+    ticket.closedAt = Date.now();
+    ticket.closedBy = interaction.user.tag;
+    saveTickets();
+    addAuditLog('TICKET_CLOSED', `${interaction.user.tag} closed a ticket (opened by ${ticket.userTag})`);
+
+    await interaction.reply('🔒 Closing this ticket in 5 seconds...');
+    setTimeout(async () => {
+      const channel = await client.channels.fetch(ticket.channelId).catch(() => null);
+      if (channel) await channel.delete().catch(() => {});
+    }, 5000);
+  }
+}
+
 client.on('interactionCreate', async (interaction) => {
+  if (interaction.isButton()) {
+    return handleTicketButton(interaction).catch(err => {
+      console.error('[TICKETS] Button handler error:', err);
+      const payload = { content: `❌ Something went wrong: ${err.message}`, ephemeral: true };
+      if (interaction.replied || interaction.deferred) interaction.editReply(payload).catch(() => {});
+      else interaction.reply(payload).catch(() => {});
+    });
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
@@ -786,7 +1017,8 @@ client.on('interactionCreate', async (interaction) => {
     getBalance, setBalance, addBalance, getCooldown, setCooldown, clearCooldown,
     getAllBalances: () => economyBalances,
     getShields, addShields, useShieldCharge,
-    submitLoaRequest
+    submitLoaRequest, getBanAppealUrl, saveBotState,
+    addModerationAction, getCaseAppealUrl
   };
 
   try {
@@ -1128,6 +1360,7 @@ app.post('/api/words/add', (req, res) => {
   const cleanWord = word.trim().toLowerCase();
   if (!botState.autoMod.customBadWords.includes(cleanWord)) {
     botState.autoMod.customBadWords.push(cleanWord);
+    saveBotState();
     addAuditLog('AUTOMOD_WORD_ADD', `Added "${cleanWord}" to word filter.`);
   }
 
@@ -1140,6 +1373,7 @@ app.post('/api/words/remove', (req, res) => {
   if (!word) return res.status(400).json({ success: false, error: 'No word provided.' });
 
   botState.autoMod.customBadWords = botState.autoMod.customBadWords.filter(w => w !== word.toLowerCase());
+  saveBotState();
   addAuditLog('AUTOMOD_WORD_REMOVE', `Removed "${word}" from word filter.`);
 
   res.json({ success: true, message: `Removed "${word}" from AutoMod filter!`, payload: getPayload() });
@@ -1148,6 +1382,7 @@ app.post('/api/words/remove', (req, res) => {
 // 3. UPDATE AUTOMOD SETTINGS
 app.post('/api/automod/update', (req, res) => {
   botState.autoMod = { ...botState.autoMod, ...req.body };
+  saveBotState();
   addAuditLog('AUTOMOD_CONFIG', 'Updated AutoMod rules and thresholds.');
   res.json({ success: true, message: 'AutoMod settings updated!', payload: getPayload() });
 });
@@ -1159,6 +1394,7 @@ app.post('/api/economy/update', (req, res) => {
   if (startingBalance !== undefined) botState.economy.startingBalance = Math.max(0, parseInt(startingBalance) || 0);
   if (dailyReward !== undefined) botState.economy.dailyReward = Math.max(0, parseInt(dailyReward) || 0);
   if (currencyName !== undefined && currencyName.trim()) botState.economy.currencyName = currencyName.trim();
+  saveBotState();
   addAuditLog('ECONOMY_CONFIG', 'Updated Economy settings.');
   res.json({ success: true, message: 'Economy settings saved!', payload: getPayload() });
 });
@@ -1169,6 +1405,7 @@ app.post('/api/gif-responder/update', (req, res) => {
   if (enabled !== undefined) botState.gifResponder.enabled = !!enabled;
   if (targetUserId !== undefined && targetUserId.trim()) botState.gifResponder.targetUserId = targetUserId.trim();
   if (gifUrl !== undefined) botState.gifResponder.gifUrl = gifUrl.trim();
+  saveBotState();
   addAuditLog('GIF_RESPONDER_CONFIG', 'Updated GIF Responder settings.');
   res.json({ success: true, message: 'GIF Responder settings saved!', payload: getPayload() });
 });
@@ -1179,6 +1416,7 @@ app.post('/api/logging/update', (req, res) => {
   if (enabled !== undefined) botState.logging.enabled = !!enabled;
   if (channelId !== undefined) botState.logging.channelId = channelId || null;
   if (events !== undefined) botState.logging.events = { ...botState.logging.events, ...events };
+  saveBotState();
   addAuditLog('LOGGING_CONFIG', 'Updated Logging settings.');
   res.json({ success: true, message: 'Logging settings saved!', payload: getPayload() });
 });
@@ -1192,6 +1430,7 @@ app.post('/api/welcome/update', (req, res) => {
   if (joinMessage !== undefined) botState.welcome.joinMessage = joinMessage;
   if (leaveEnabled !== undefined) botState.welcome.leaveEnabled = !!leaveEnabled;
   if (leaveMessage !== undefined) botState.welcome.leaveMessage = leaveMessage;
+  saveBotState();
   addAuditLog('WELCOME_CONFIG', 'Updated Welcome/Goodbye settings.');
   res.json({ success: true, message: 'Welcome settings saved!', payload: getPayload() });
 });
@@ -1201,6 +1440,7 @@ app.post('/api/bypass/update', (req, res) => {
   const { roles, channels } = req.body;
   botState.autoMod.bypassRoles = roles || [];
   botState.autoMod.bypassChannels = channels || [];
+  saveBotState();
   addAuditLog('BYPASS_UPDATE', 'Updated AutoMod role/channel bypass lists.');
   res.json({ success: true, message: 'Bypass settings saved!', payload: getPayload() });
 });
@@ -1214,6 +1454,7 @@ app.post('/api/automod/roast-targets/add', async (req, res) => {
   if (!botState.autoMod.roastTargets.includes(userId)) {
     botState.autoMod.roastTargets.push(userId);
   }
+  saveBotState();
 
   // Try to resolve a tag for a nicer audit log line — non-fatal if it fails.
   let label = userId;
@@ -1231,6 +1472,7 @@ app.post('/api/automod/roast-targets/add', async (req, res) => {
 app.post('/api/automod/roast-targets/remove', (req, res) => {
   const { userId } = req.body;
   botState.autoMod.roastTargets = botState.autoMod.roastTargets.filter(id => id !== userId);
+  saveBotState();
   addAuditLog('ROAST_TARGET_REMOVE', `Removed user ID ${userId} from the AutoMod roast list.`);
   res.json({ success: true, message: 'Removed from roast list.', payload: getPayload() });
 });
@@ -1257,6 +1499,7 @@ app.post('/api/automod/send-roast', async (req, res) => {
 // 5. MAINTENANCE TOGGLE
 app.post('/api/bot/maintenance', (req, res) => {
   botState.isMaintenanceMode = !botState.isMaintenanceMode;
+  saveBotState();
   addAuditLog('MAINTENANCE', `Maintenance mode set to ${botState.isMaintenanceMode}`);
   console.log('[PRESENCE DEBUG] maintenance route hit, about to call updatePresence(). isMaintenanceMode is now:', botState.isMaintenanceMode);
   updatePresence();
@@ -1270,6 +1513,7 @@ app.post('/api/bot/presence', (req, res) => {
   botState.activityType = activityType;
   botState.activityText = activityText;
   botState.streamUrl = streamUrl;
+  saveBotState();
   updatePresence();
   addAuditLog('PRESENCE_UPDATE', `Set status: ${activityType} - ${activityText}`);
   res.json({ success: true, message: 'Presence settings saved!', payload: getPayload() });
@@ -1299,7 +1543,7 @@ app.post('/api/moderation/action', async (req, res) => {
     if (!member) return res.status(400).json({ success: false, error: 'Member not found.' });
 
     let dmSent = false;
-    const sendDm = async (actName, details) => {
+    const sendDm = async (actName, details, appealUrl) => {
       try {
         if (useEmbed) {
           const embed = new EmbedBuilder()
@@ -1308,9 +1552,12 @@ app.post('/api/moderation/action', async (req, res) => {
             .addFields({ name: 'Details', value: details })
             .setColor(embedColor || '#6366f1')
             .setTimestamp();
+          if (appealUrl) embed.addFields({ name: 'Appeal This Ban', value: appealUrl });
           await member.send({ embeds: [embed] });
         } else {
-          await member.send(`Notice: You received a **${actName}** in Apex Roleplay. Reason: ${reason || 'Staff action'}`);
+          let content = `Notice: You received a **${actName}** in Apex Roleplay. Reason: ${reason || 'Staff action'}`;
+          if (appealUrl) content += `\nAppeal this ban: ${appealUrl}`;
+          await member.send(content);
         }
         return true;
       } catch (e) {
@@ -1352,7 +1599,8 @@ app.post('/api/moderation/action', async (req, res) => {
     }
 
     if (action === 'ban') {
-      dmSent = await sendDm('BAN', `Reason: ${reason || 'Staff Action'}`);
+      const appealUrl = getBanAppealUrl(`${req.protocol}://${req.get('host')}`);
+      dmSent = await sendDm('BAN', `Reason: ${reason || 'Staff Action'}`, appealUrl);
       await member.ban({ reason });
       addAuditLog('BAN', `Banned ${member.user.tag}`);
       return res.json({ success: true, message: `Banned ${member.user.tag}!` });
@@ -1627,6 +1875,20 @@ app.get('/api/appeals/forms', (req, res) => {
   res.json({ forms });
 });
 
+// 22B2. SET BAN APPEAL FORM — designates which published form gets linked in ban DMs
+app.post('/api/appeals/set-ban-form', (req, res) => {
+  const { formId } = req.body;
+  if (formId) {
+    const form = appealForms.find(f => f.id === formId);
+    if (!form) return res.status(404).json({ success: false, error: 'Form not found.' });
+    if (form.status !== 'published') return res.status(400).json({ success: false, error: 'Only published forms can be used for ban appeals.' });
+  }
+  botState.appeals.banAppealFormId = formId || null;
+  saveBotState();
+  addAuditLog('APPEALS_CONFIG', formId ? `Set ban appeal form to "${appealForms.find(f => f.id === formId).title}"` : 'Cleared ban appeal form.');
+  res.json({ success: true, message: formId ? 'Ban appeal form set!' : 'Ban appeal link removed from ban DMs.', payload: getPayload() });
+});
+
 // 22C. CREATE FORM (admin)
 app.post('/api/appeals/forms', (req, res) => {
   const { title, description } = req.body;
@@ -1801,6 +2063,8 @@ app.post('/api/moderation/create', async (req, res) => {
   if (!['ban', 'mute', 'warn', 'kick'].includes(type)) return res.status(400).json({ success: false, error: 'Invalid action type.' });
   if (!['discord', 'roblox'].includes(platform)) return res.status(400).json({ success: false, error: 'Invalid platform.' });
 
+  const actionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
   try {
     let targetLabel = target;
 
@@ -1811,8 +2075,12 @@ app.post('/api/moderation/create', async (req, res) => {
       if (!member) return res.status(400).json({ success: false, error: 'Discord member not found.' });
       targetLabel = member.user.tag;
 
+      const caseAppealUrl = ['ban', 'mute', 'warn'].includes(type)
+        ? getCaseAppealUrl(actionId, `${req.protocol}://${req.get('host')}`)
+        : null;
+
       let dmSent = false;
-      const sendDm = async (actionName, details) => {
+      const sendDm = async (actionName, details, appealUrl) => {
         try {
           const embed = new EmbedBuilder()
             .setTitle(`🛡️ Apex Moderation: ${actionName}`)
@@ -1820,6 +2088,7 @@ app.post('/api/moderation/create', async (req, res) => {
             .addFields({ name: 'Details', value: details })
             .setColor('#ef4444')
             .setTimestamp();
+          if (appealUrl) embed.addFields({ name: 'Appeal This', value: appealUrl });
           await member.send({ embeds: [embed] });
           return true;
         } catch (e) {
@@ -1829,7 +2098,7 @@ app.post('/api/moderation/create', async (req, res) => {
 
       if (type === 'ban') {
         if (!member.bannable) return res.status(400).json({ success: false, error: 'Bot cannot ban this member (role hierarchy).' });
-        dmSent = await sendDm('BAN', `Reason: ${reason || 'No reason provided.'}`); // sent BEFORE the ban — can't DM after removal
+        dmSent = await sendDm('BAN', `Reason: ${reason || 'No reason provided.'}`, caseAppealUrl); // sent BEFORE the ban — can't DM after removal
         await member.ban({ reason });
       } else if (type === 'kick') {
         if (!member.kickable) return res.status(400).json({ success: false, error: 'Bot cannot kick this member (role hierarchy).' });
@@ -1838,12 +2107,12 @@ app.post('/api/moderation/create', async (req, res) => {
       } else if (type === 'mute') {
         if (!member.moderatable) return res.status(400).json({ success: false, error: 'Bot cannot timeout this member (role hierarchy).' });
         const ms = parseDurationToMs(duration) || (60 * 60 * 1000); // default 1h
-        dmSent = await sendDm('MUTE / TIMEOUT', `Duration: ${duration || '1 hour (default)'}\nReason: ${reason || 'No reason provided.'}`);
+        dmSent = await sendDm('MUTE / TIMEOUT', `Duration: ${duration || '1 hour (default)'}\nReason: ${reason || 'No reason provided.'}`, caseAppealUrl);
         await member.timeout(ms, reason);
       } else if (type === 'warn') {
         const current = (userWarnings.get(target) || 0) + 1;
         userWarnings.set(target, current);
-        dmSent = await sendDm('WARNING', `Reason: ${reason || 'No reason provided.'}`);
+        dmSent = await sendDm('WARNING', `Reason: ${reason || 'No reason provided.'}`, caseAppealUrl);
       }
 
       req._dmSent = dmSent; // stashed for the response message below
@@ -1856,7 +2125,7 @@ app.post('/api/moderation/create', async (req, res) => {
       // 'warn' on Roblox: no-op, log only.
     }
 
-    const record = addModerationAction({ type, platform, target, targetLabel, reason, duration: duration || null, evidence: evidence || null, issuedBy: 'Dashboard' });
+    const record = addModerationAction({ id: actionId, type, platform, target, targetLabel, reason, duration: duration || null, evidence: evidence || null, issuedBy: 'Dashboard' });
     addAuditLog(`MOD_${type.toUpperCase()}`, `${platform === 'discord' ? 'Discord' : 'Roblox'} ${type} issued to ${targetLabel} — ${reason || 'No reason'}`);
 
     const dmNote = platform === 'discord'
@@ -1894,11 +2163,240 @@ app.delete('/api/moderation/actions/:id', async (req, res) => {
     }
 
     action.status = 'revoked';
+    saveModerationActions();
     addAuditLog(`MOD_REVOKE`, `Revoked ${action.type} on ${action.targetLabel} (${action.platform})`);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
+});
+
+// ===================================================================
+// CASE APPEAL ROUTES — one appeal per ban/mute/warn action.
+// ===================================================================
+
+// PUBLIC — fetch case details (for the /case-appeal/:id page)
+app.get('/api/case-appeal/:id', (req, res) => {
+  const action = moderationActions.find(a => a.id === req.params.id);
+  if (!action) return res.status(404).json({ success: false, error: 'This case does not exist.' });
+  if (!['ban', 'mute', 'warn'].includes(action.type)) return res.status(400).json({ success: false, error: 'This type of action cannot be appealed.' });
+
+  res.json({
+    success: true,
+    case: {
+      type: action.type,
+      targetLabel: action.targetLabel,
+      reason: action.reason,
+      timestamp: action.timestamp,
+      status: action.status,
+      appealStatus: action.appealStatus,
+      appealReason: action.appealReason,
+      appealSubmittedAt: action.appealSubmittedAt,
+      appealResolvedAt: action.appealResolvedAt
+    }
+  });
+});
+
+// PUBLIC — submit an appeal for this case (one shot only)
+app.post('/api/case-appeal/:id/submit', (req, res) => {
+  const action = moderationActions.find(a => a.id === req.params.id);
+  if (!action) return res.status(404).json({ success: false, error: 'This case does not exist.' });
+  if (!['ban', 'mute', 'warn'].includes(action.type)) return res.status(400).json({ success: false, error: 'This type of action cannot be appealed.' });
+  if (action.appealStatus !== 'none') return res.status(400).json({ success: false, error: 'An appeal has already been submitted for this case.' });
+
+  const { message } = req.body;
+  if (!message || !message.trim()) return res.status(400).json({ success: false, error: 'Please explain why you think this should be reviewed.' });
+
+  action.appealStatus = 'pending';
+  action.appealReason = message.trim();
+  action.appealSubmittedAt = Date.now();
+  saveModerationActions();
+  addAuditLog('APPEAL_CASE_SUBMITTED', `${action.targetLabel} appealed their ${action.type} (case ${action.id})`);
+
+  res.json({ success: true, message: 'Your appeal has been submitted for staff review.' });
+});
+
+// ADMIN — accept a case appeal: revokes the underlying action + DMs the user
+app.post('/api/moderation/actions/:id/appeal/accept', async (req, res) => {
+  const action = moderationActions.find(a => a.id === req.params.id);
+  if (!action) return res.status(404).json({ success: false, error: 'Case not found.' });
+  if (action.appealStatus !== 'pending') return res.status(400).json({ success: false, error: 'No pending appeal on this case.' });
+
+  try {
+    if (action.status === 'active' && action.platform === 'discord') {
+      const guild = client.guilds.cache.first();
+      if (guild) {
+        if (action.type === 'ban') {
+          await guild.members.unban(action.target).catch(() => {});
+        } else if (action.type === 'mute') {
+          const member = await guild.members.fetch(action.target).catch(() => null);
+          if (member) await member.timeout(null).catch(() => {});
+        }
+        // 'warn' has nothing to revoke on Discord's side — record-only.
+        action.status = 'revoked';
+      }
+    }
+
+    action.appealStatus = 'accepted';
+    action.appealResolvedAt = Date.now();
+    saveModerationActions();
+    addAuditLog('APPEAL_CASE_ACCEPTED', `Accepted appeal for ${action.targetLabel}'s ${action.type} (case ${action.id})`);
+
+    try {
+      const guild = client.guilds.cache.first();
+      const member = guild ? await guild.members.fetch(action.target).catch(() => null) : null;
+      const user = member ? member.user : await client.users.fetch(action.target).catch(() => null);
+      if (user) {
+        const embed = new EmbedBuilder()
+          .setTitle('✅ Appeal Accepted')
+          .setDescription(`Your appeal regarding your **${action.type}** has been accepted.`)
+          .setColor('#10b981')
+          .setTimestamp();
+        await user.send({ embeds: [embed] }).catch(() => {});
+      }
+    } catch (e) { /* DMs closed */ }
+
+    res.json({ success: true, message: 'Appeal accepted!' });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN — reject a case appeal: action stays in place, DMs the user
+app.post('/api/moderation/actions/:id/appeal/reject', async (req, res) => {
+  const action = moderationActions.find(a => a.id === req.params.id);
+  if (!action) return res.status(404).json({ success: false, error: 'Case not found.' });
+  if (action.appealStatus !== 'pending') return res.status(400).json({ success: false, error: 'No pending appeal on this case.' });
+
+  action.appealStatus = 'rejected';
+  action.appealResolvedAt = Date.now();
+  saveModerationActions();
+  addAuditLog('APPEAL_CASE_REJECTED', `Rejected appeal for ${action.targetLabel}'s ${action.type} (case ${action.id})`);
+
+  try {
+    const guild = client.guilds.cache.first();
+    const member = guild ? await guild.members.fetch(action.target).catch(() => null) : null;
+    const user = member ? member.user : await client.users.fetch(action.target).catch(() => null);
+    if (user) {
+      const embed = new EmbedBuilder()
+        .setTitle('❌ Appeal Rejected')
+        .setDescription(`Your appeal regarding your **${action.type}** was not accepted. This case cannot be appealed again.`)
+        .setColor('#ef4444')
+        .setTimestamp();
+      await user.send({ embeds: [embed] }).catch(() => {});
+    }
+  } catch (e) { /* DMs closed */ }
+
+  res.json({ success: true, message: 'Appeal rejected.' });
+});
+
+// ===================================================================
+// TICKET SYSTEM ROUTES
+// ===================================================================
+
+// LIST PANELS (admin)
+app.get('/api/tickets/panels', (req, res) => {
+  const panels = ticketPanels.map(p => ({
+    ...p,
+    openCount: tickets.filter(t => t.panelId === p.id && t.status === 'open').length
+  }));
+  res.json({ panels });
+});
+
+// CREATE PANEL (admin)
+app.post('/api/tickets/panels', (req, res) => {
+  const { title, description, buttonLabel, buttonEmoji, buttonStyle, channelId, supportRoleId, welcomeMessage } = req.body;
+  if (!title) return res.status(400).json({ success: false, error: 'A title is required.' });
+
+  const panel = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    description: description || '',
+    buttonLabel: buttonLabel || 'Open Ticket',
+    buttonEmoji: buttonEmoji || '🎫',
+    buttonStyle: ['Primary', 'Secondary', 'Success', 'Danger'].includes(buttonStyle) ? buttonStyle : 'Primary',
+    channelId: channelId || null,
+    supportRoleId: supportRoleId || null,
+    welcomeMessage: welcomeMessage || '',
+    sentMessageId: null,
+    createdAt: Date.now()
+  };
+  ticketPanels.unshift(panel);
+  saveTickets();
+  addAuditLog('TICKET_PANEL_CREATE', `Created ticket panel "${title}"`);
+  res.json({ success: true, panel });
+});
+
+// DELETE PANEL (admin)
+app.delete('/api/tickets/panels/:id', (req, res) => {
+  const panel = ticketPanels.find(p => p.id === req.params.id);
+  if (!panel) return res.status(404).json({ success: false, error: 'Panel not found.' });
+  ticketPanels = ticketPanels.filter(p => p.id !== req.params.id);
+  saveTickets();
+  addAuditLog('TICKET_PANEL_DELETE', `Deleted ticket panel "${panel.title}"`);
+  res.json({ success: true });
+});
+
+// SEND PANEL — posts the embed + button to the configured channel
+app.post('/api/tickets/panels/:id/send', async (req, res) => {
+  const panel = ticketPanels.find(p => p.id === req.params.id);
+  if (!panel) return res.status(404).json({ success: false, error: 'Panel not found.' });
+  if (!panel.channelId) return res.status(400).json({ success: false, error: 'No channel set for this panel.' });
+
+  try {
+    const channel = await client.channels.fetch(panel.channelId).catch(() => null);
+    if (!channel) return res.status(400).json({ success: false, error: 'Channel not found.' });
+
+    const embed = new EmbedBuilder()
+      .setTitle(panel.title)
+      .setDescription(panel.description || 'Click the button below to open a ticket.')
+      .setColor('#3b82f6');
+
+    const styleMap = { Primary: ButtonStyle.Primary, Secondary: ButtonStyle.Secondary, Success: ButtonStyle.Success, Danger: ButtonStyle.Danger };
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`ticket_open_${panel.id}`)
+        .setLabel(panel.buttonLabel)
+        .setEmoji(panel.buttonEmoji || undefined)
+        .setStyle(styleMap[panel.buttonStyle] || ButtonStyle.Primary)
+    );
+
+    const sent = await channel.send({ embeds: [embed], components: [row] });
+    panel.sentMessageId = sent.id;
+    saveTickets();
+    addAuditLog('TICKET_PANEL_SENT', `Sent ticket panel "${panel.title}" to #${channel.name}`);
+    res.json({ success: true, message: `Panel sent to #${channel.name}!` });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// LIST TICKETS (admin)
+app.get('/api/tickets', (req, res) => {
+  res.json({ tickets });
+});
+
+// CLOSE TICKET FROM DASHBOARD (admin)
+app.post('/api/tickets/:id/close', async (req, res) => {
+  const ticket = tickets.find(t => t.id === req.params.id);
+  if (!ticket) return res.status(404).json({ success: false, error: 'Ticket not found.' });
+  if (ticket.status === 'closed') return res.status(400).json({ success: false, error: 'Already closed.' });
+
+  ticket.status = 'closed';
+  ticket.closedAt = Date.now();
+  ticket.closedBy = 'Dashboard';
+  saveTickets();
+  addAuditLog('TICKET_CLOSED', `Ticket closed from dashboard (opened by ${ticket.userTag})`);
+
+  try {
+    const channel = await client.channels.fetch(ticket.channelId).catch(() => null);
+    if (channel) {
+      await channel.send('🔒 This ticket was closed from the dashboard. Deleting in 5 seconds...').catch(() => {});
+      setTimeout(() => channel.delete().catch(() => {}), 5000);
+    }
+  } catch (e) { /* channel may already be gone */ }
+
+  res.json({ success: true, message: 'Ticket closed!' });
 });
 
 const PORT = process.env.PORT || 3000;
